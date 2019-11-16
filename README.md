@@ -1,5 +1,11 @@
 # Persistent Multi-Word Compare-and-Swap (PMwCAS) for NVRAM
 
+**Disclaimer:** for a stable and feature-complete PMwCAS please checkout Microsoft's original repo,
+this fork contains some follow up work upon the original PMwCAS, 
+due to limited developing resources,
+all the new features will only test on the latest Linux environment. 
+
+
 ![Windows Build Status](https://justinlevandoski.visualstudio.com/_apis/public/build/definitions/c59a8e03-b063-4da5-8b4b-b0092d61c7cb/3/badge "Windows Build Status")
 
 PMwCAS is a library that allows atomically changing multiple 8-byte words on non-volatile memory in a lock-free manner. It allows developers to easily build lock-free data structures for non-volatile memory and requires no custom recovery logic from the application. More details are described in the following [slide deck](http://www.cs.sfu.ca/~tzwang/pmwcas-slides.pdf), [full paper](http://justinlevandoski.org/papers/ICDE18_mwcas.pdf) and [extended abstract](http://www.cs.sfu.ca/~tzwang/pmwcas-nvmw.pdf):
