@@ -8,12 +8,21 @@ trigger:
 
 pool: dis-03
 
-steps:
-- script: docker build -t pmwcas .  # add options to this command to meet your needs
-  displayName: 'Build the code'
+stages:
+- stage: Build
+  jobs:
+  - job: Build pmwcas
+    steps:
+      - script: docker build -t pmwcas .
 
-- script: docker run pmwcas 
-  displayName: 'Run tests'
+- stage: Test
+  jobs:
+  - job: Test all
+    steps:
+      - script: docker run pmwcas
 
-- script: docker rmi pmwcas --force 
-  displayName: 'Clean resources'
+- stage: Cleanup
+  jobs:
+  - job: Clean image
+    steps:
+      - script: docker rmi pmwcas --force 
