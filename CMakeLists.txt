@@ -9,7 +9,6 @@ project(pmwcas)
 include(ExternalProject)
 include(FetchContent)
 
-enable_testing()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lpthread -lrt -lnuma")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lpthread -lrt -lnuma")
@@ -150,12 +149,14 @@ if(${BUILD_APPS})
   set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} "-lpthread -lrt -lnuma")
 endif()
 
+enable_testing()
+
 #Function to automate building test binaries with appropriate environment sources
 FUNCTION(ADD_PMWCAS_TEST TEST_NAME)
   add_executable(${TEST_NAME} ${TEST_NAME}.cc ${PROJECT_SOURCE_DIR}/${LINUX_ENVIRONMENT_SOURCES})
   target_link_libraries(${TEST_NAME} ${PMWCAS_TEST_LINK_LIBS} ${PMWCAS_APPS_LINK_LIBS})
   target_include_directories(${TEST_NAME} PUBLIC ${gtest_SOURCE_DIR} ${gtest_SOURCE_DIR}/include)
-  add_test(${TEST_NAME} ${CMAKE_BINARY_DIR}/${TEST_NAME})
+  gtest_add_tests(TARGET ${TEST_NAME})
 ENDFUNCTION()
 
 #Function to automate building benchmark binaries with appropriate environment sources
@@ -171,6 +172,7 @@ add_subdirectory(src/common)
 add_subdirectory(src/benchmarks)
 add_subdirectory(src/mwcas)
 add_subdirectory(src/double-linked-list)
+
 
 # Generate a shared library for applications to link
 if(WIN32)

@@ -1,0 +1,16 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- dev
+
+pool: dis-03
+
+steps:
+- script: docker build -t pmwcas .  # add options to this command to meet your needs
+  displayName: 'build the code'
+
+- script: docker run pmwcas 
+  displayName: 'Run tests'
