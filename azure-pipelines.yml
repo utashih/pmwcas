@@ -24,5 +24,6 @@ stages:
 - stage: Cleanup
   jobs:
   - job: clean_image
+    condition: always() 
     steps:
       - script: docker rmi pmwcas --force 
