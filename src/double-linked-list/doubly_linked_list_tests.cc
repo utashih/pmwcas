@@ -485,7 +485,7 @@ int main(int argc, char** argv) {
 #ifdef PMDK
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("doubly_linked_test_pool",
                                                     "doubly_linked_layout",
-                                                    static_cast<uint64_t >(1024) * 1024 * 1204 * 5),
+                                                    static_cast<uint64_t >(1024) * 1024 * 1204 * 1),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
