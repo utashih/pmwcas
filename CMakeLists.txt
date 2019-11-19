@@ -10,8 +10,6 @@ include(ExternalProject)
 include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lpthread -lrt -lnuma")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lpthread -lrt -lnuma")
 
 # Set backend to PMDK by default to build persistent version
 set(PMEM_BACKEND "PMDK" CACHE STRING "Persistent memory backend type")
@@ -74,6 +72,10 @@ else()
   message(STATUS "GOOGLE_FRAMEWORK is not defined, will not use glog, gflags and gtest")
 endif()
 
+
+include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/src)
+
 if(${GOOGLE_FRAMEWORK})
   # Google Test
   FetchContent_Declare(
@@ -102,17 +104,15 @@ if(${GOOGLE_FRAMEWORK})
   endif()
 endif()
 
-include_directories(${PROJECT_SOURCE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/src)
-
 # Set the list of libraries that make up the pmwcas stack
 set (PMWCAS_LINK_LIBS
-  pmwcas
+  glog::glog
 )
 
 if(${GOOGLE_FRAMEWORK})
   # Set the list of libraries that use pmwcas
   set (PMWCAS_APPS_LINK_LIBS
+    pmwcas
     glog::glog
     gflags
     gtest_main 
@@ -134,12 +134,10 @@ endif()
 add_definitions(-DAPPS)
 
 # Set the link libraries to for test compilation
-set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS} ${GTEST_LIB})
 set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
 set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma")
 
 # Set the link libraries to for benchmark binary compilation
-set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_LINK_LIBS} ${GFLAGS_LIB} ${GLOG_LIB})
 set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} "-lpthread -lrt -lnuma")
 
 enable_testing()
@@ -148,7 +146,6 @@ enable_testing()
 FUNCTION(ADD_PMWCAS_TEST TEST_NAME)
   add_executable(${TEST_NAME} ${TEST_NAME}.cc ${PROJECT_SOURCE_DIR}/${LINUX_ENVIRONMENT_SOURCES})
   target_link_libraries(${TEST_NAME} ${PMWCAS_TEST_LINK_LIBS} ${PMWCAS_APPS_LINK_LIBS})
-  target_include_directories(${TEST_NAME} PUBLIC ${gtest_SOURCE_DIR} ${gtest_SOURCE_DIR}/include)
   gtest_add_tests(TARGET ${TEST_NAME})
 ENDFUNCTION()
 
@@ -176,8 +173,7 @@ endif()
 
 get_property(PMWCAS_SRC GLOBAL PROPERTY PMWCAS_SRC)
 add_library(pmwcas SHARED ${PMWCAS_SRC})
-add_library(pmwcas_static ${PMWCAS_SRC})
 if(${PMEM_BACKEND} STREQUAL "PMDK")
   target_link_libraries(pmwcas PUBLIC pmemobj)
-  target_link_libraries(pmwcas_static PUBLIC pmemobj)
 endif()
+target_link_libraries(pmwcas PUBLIC glog::glog)

@@ -7,6 +7,6 @@ set(UTIL_SOURCES
 )
 
 add_library(double-linked-list STATIC ${UTIL_SOURCES} ${UTIL_HEADERS})
-target_link_libraries(double-linked-list ${GFLAGS_LIB} ${GLOG_LIB})
+target_link_libraries(double-linked-list glog::glog)
 
 ADD_PMWCAS_TEST(doubly_linked_list_tests)
