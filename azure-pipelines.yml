@@ -11,18 +11,18 @@ pool: dis-03
 stages:
 - stage: Build
   jobs:
-  - job: Build pmwcas
+  - job: build_pmwcas
     steps:
       - script: docker build -t pmwcas .
 
 - stage: Test
   jobs:
-  - job: Test all
+  - job: test_all
     steps:
       - script: docker run pmwcas
 
 - stage: Cleanup
   jobs:
-  - job: Clean image
+  - job: clean_image
     steps:
       - script: docker rmi pmwcas --force 
