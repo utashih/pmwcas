@@ -20,7 +20,7 @@ stages:
   - job: test_all
     steps:
       - script: docker run pmwcas
-  - job: cleanup
-    condition: always()
-    steps:
+        displayName: 'run the tests'
       - script: docker rmi pmwcas --force
+        displayName: 'clean the resources'
+        condition: always()
