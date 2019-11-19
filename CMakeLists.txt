@@ -98,7 +98,6 @@ if(${GOOGLE_FRAMEWORK})
   FetchContent_GetProperties(glog)
   if (NOT glog_POPULATED)
     FetchContent_Populate(glog)
-    set(WITH_GFLAGS OFF CACHE BOOL "we don't want gflags")
     add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
   endif()
 endif()
@@ -114,9 +113,9 @@ set (PMWCAS_LINK_LIBS
 if(${GOOGLE_FRAMEWORK})
   # Set the list of libraries that use pmwcas
   set (PMWCAS_APPS_LINK_LIBS
-    glog
+    glog::glog
     gflags
-    gtest
+    gtest_main 
     double-linked-list
   )
 endif()
@@ -131,23 +130,17 @@ else()
   )
 endif()
 
-option(BUILD_APPS "Build tests and benchmarks based on gtest" ON)
-if(${BUILD_APPS})
-  if(NOT GOOGLE_FRAMEWORK)
-    message(FATAL_ERROR "Must enable GOOGLE_FRAMEWORK to be able to build tests and benchmarks")
-  endif()
 
-  add_definitions(-DAPPS)
+add_definitions(-DAPPS)
 
-  # Set the link libraries to for test compilation
-  set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS} ${GTEST_LIB})
-  set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
-  set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma")
+# Set the link libraries to for test compilation
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS} ${GTEST_LIB})
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma")
 
 # Set the link libraries to for benchmark binary compilation
-  set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_LINK_LIBS} ${GFLAGS_LIB} ${GLOG_LIB})
-  set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} "-lpthread -lrt -lnuma")
-endif()
+set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_LINK_LIBS} ${GFLAGS_LIB} ${GLOG_LIB})
+set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} "-lpthread -lrt -lnuma")
 
 enable_testing()
 
