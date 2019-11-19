@@ -1,12 +1,29 @@
 # Persistent Multi-Word Compare-and-Swap (PMwCAS) for NVRAM
 
-**Disclaimer:** for a stable and feature-complete PMwCAS please checkout Microsoft's original repo,
+![Windows Build Status](https://justinlevandoski.visualstudio.com/_apis/public/build/definitions/c59a8e03-b063-4da5-8b4b-b0092d61c7cb/3/badge "Windows Build Status")
+
+**Disclaimer:** for a stable and feature-complete PMwCAS please checkout Microsoft's [original repo](https://github.com/microsoft/pmwcas),
 this fork contains some follow up work upon the original PMwCAS, 
 due to limited developing resources,
 all the new features will only test on the latest Linux environment. 
 
+### Current development plan
 
-![Windows Build Status](https://justinlevandoski.visualstudio.com/_apis/public/build/definitions/c59a8e03-b063-4da5-8b4b-b0092d61c7cb/3/badge "Windows Build Status")
+**Clean** the build system and some unused code.
+Then adopt a CI for PMwCAS,
+this, however, might drop support for Windows, 
+because I'm not familiar with that platform.
+
+**Improve** the performance by adopting less aggressive thread helping policy, e.g. thread should never help each other. 
+People may argue this breaks the lock-free design philosophy, 
+and in some extreme cases no progress can be made. 
+They are theoretically correct, but the goal of my improvements is to make PMwCAS usable in more practical scenarios.
+It's practical to make assumption that, real-world high performance system never over-subscribe their cpu cores!
+
+**Add** some new features and ideas to the current implementation. 
+Although these improvements are never intended to make a new paper, PMwCAS itself might affiliate with other academic projects, which I can't talk too much here.
+
+==========================
 
 PMwCAS is a library that allows atomically changing multiple 8-byte words on non-volatile memory in a lock-free manner. It allows developers to easily build lock-free data structures for non-volatile memory and requires no custom recovery logic from the application. More details are described in the following [slide deck](http://www.cs.sfu.ca/~tzwang/pmwcas-slides.pdf), [full paper](http://justinlevandoski.org/papers/ICDE18_mwcas.pdf) and [extended abstract](http://www.cs.sfu.ca/~tzwang/pmwcas-nvmw.pdf):
 
