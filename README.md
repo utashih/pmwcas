@@ -13,6 +13,7 @@ all the new features will only test on the latest Linux environment.
 Then adopt a CI for PMwCAS,
 this, however, might drop support for Windows, 
 because I'm not familiar with that platform.
+:white_check_mark:
 
 **Improve** the performance by adopting less aggressive thread helping policy, e.g. thread should never help each other. 
 People may argue this breaks the lock-free design philosophy, 
