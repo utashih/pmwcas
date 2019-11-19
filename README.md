@@ -1,6 +1,6 @@
 # Persistent Multi-Word Compare-and-Swap (PMwCAS) for NVRAM
 
-![Windows Build Status](https://justinlevandoski.visualstudio.com/_apis/public/build/definitions/c59a8e03-b063-4da5-8b4b-b0092d61c7cb/3/badge "Windows Build Status")
+[![Build Status](https://dev.azure.com/haoxiangpeng/pmwcas/_apis/build/status/XiangpengHao.pmwcas?branchName=dev)](https://dev.azure.com/haoxiangpeng/pmwcas/_build/latest?definitionId=3&branchName=dev)
 
 **Disclaimer:** for a stable and feature-complete PMwCAS please checkout Microsoft's [original repo](https://github.com/microsoft/pmwcas),
 this fork contains some follow up work upon the original PMwCAS, 
