@@ -85,9 +85,6 @@
 #include "metrics.h"
 #include "util/nvram.h"
 
-#ifdef GOOGLE_FRAMEWORK
-#include <gtest/gtest_prod.h>
-#endif
 
 namespace pmwcas {
 

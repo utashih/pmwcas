@@ -102,6 +102,19 @@ if(${GOOGLE_FRAMEWORK})
     FetchContent_Populate(glog)
     add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
   endif()
+
+
+  # Google Flags 
+  FetchContent_Declare(
+          gflags
+          GIT_REPOSITORY https://github.com/gflags/gflags.git
+          GIT_TAG v2.2.2
+  )
+  FetchContent_GetProperties(gflags)
+  if (NOT gflags_POPULATED)
+    FetchContent_Populate(gflags)
+    add_subdirectory(${gflags_SOURCE_DIR} ${gflags_BINARY_DIR})
+  endif()
 endif()
 
 # Set the list of libraries that make up the pmwcas stack
@@ -114,7 +127,7 @@ if(${GOOGLE_FRAMEWORK})
   set (PMWCAS_APPS_LINK_LIBS
     pmwcas
     glog::glog
-    gflags
+    gflags::gflags
     gtest_main 
     double-linked-list
   )
@@ -138,7 +151,7 @@ set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
 set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma")
 
 # Set the link libraries to for benchmark binary compilation
-set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} "-lpthread -lrt -lnuma")
+set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-lpthread -lrt -lnuma")
 
 enable_testing()
 

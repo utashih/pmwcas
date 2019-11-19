@@ -339,7 +339,7 @@ void RunBenchmark() {
 
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
-  google::ParseCommandLineFlags(&argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 #ifdef WIN32
   pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create,
                       pmwcas::DefaultAllocator::Destroy,

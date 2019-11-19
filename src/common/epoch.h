@@ -10,11 +10,9 @@
 #include <cstdint>
 #include <list>
 #include <mutex>
-#ifdef GOOGLE_FRAMEWORK
-#include <gtest/gtest_prod.h>
-#endif
 #include "include/status.h"
 #include "util/macros.h"
+
 
 namespace pmwcas {
 /// A "timestamp" that is used to determine when it is safe to reuse memory in

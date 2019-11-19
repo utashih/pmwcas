@@ -44,4 +44,7 @@ namespace pmwcas {
 #ifndef ALWAYS_ASSERT
 #define ALWAYS_ASSERT(expr) (expr) ? (void)0 : abort()
 #endif
+
+#define FRIEND_TEST(test_case_name, test_name) \
+  friend class test_case_name##_##test_name##_Test
 } // namespace pmwcas
