@@ -295,7 +295,7 @@ TEST_F(ThreadpoolTest, DISABLED_Schedule) {
 }
 #endif
 
-TEST_F(SharedMemoryTest, AttachDetach) {
+TEST_F(SharedMemoryTest, DISABLED_AttachDetach) {
   SharedMemorySegment* new_seg = nullptr;
   SharedMemorySegment* existing_seg = nullptr;
 
