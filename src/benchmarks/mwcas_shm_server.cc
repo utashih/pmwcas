@@ -15,12 +15,14 @@ using namespace pmwcas::benchmark;
 DEFINE_uint64(array_size, 100, "size of the word array for mwcas benchmark");
 DEFINE_uint64(descriptor_pool_size, 262144, "number of total descriptors");
 DEFINE_string(shm_segment, "mwcas", "name of the shared memory segment for"
-  " descriptors and data (for persistent MwCAS only)");
+                                    " descriptors and data (for persistent MwCAS only)");
 
 using namespace pmwcas;
 
 // Start a process to create a shared memory segment and sleep
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[])
+{
+  FLAGS_logtostderr = 1;
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   LOG(INFO) << "Array size: " << FLAGS_array_size;
@@ -29,20 +31,30 @@ int main(int argc, char* argv[]) {
 
 #ifdef WIN32
   pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create,
-      pmwcas::DefaultAllocator::Destroy, pmwcas::WindowsEnvironment::Create,
-      pmwcas::WindowsEnvironment::Destroy);
+                      pmwcas::DefaultAllocator::Destroy, pmwcas::WindowsEnvironment::Create,
+                      pmwcas::WindowsEnvironment::Destroy);
 #else
-  pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create,
-      pmwcas::DefaultAllocator::Destroy, pmwcas::LinuxEnvironment::Create,
-      pmwcas::LinuxEnvironment::Destroy);
+#ifdef PMDK
+  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("doubly_linked_test_pool",
+                                                    "doubly_linked_layout",
+                                                    static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
+                      pmwcas::PMDKAllocator::Destroy,
+                      pmwcas::LinuxEnvironment::Create,
+                      pmwcas::LinuxEnvironment::Destroy);
+#else
+  pmwcas::InitLibrary(pmwcas::TlsAllocator::Create,
+                      pmwcas::TlsAllocator::Destroy,
+                      pmwcas::LinuxEnvironment::Create,
+                      pmwcas::LinuxEnvironment::Destroy);
+#endif // PMDK
 #endif
 
   uint64_t size = sizeof(DescriptorPool::Metadata) +
-                  sizeof(Descriptor) * FLAGS_descriptor_pool_size +  // descriptors area
-                  sizeof(CasPtr) * FLAGS_array_size;  // data area
-  SharedMemorySegment* segment = nullptr;
+                  sizeof(Descriptor) * FLAGS_descriptor_pool_size + // descriptors area
+                  sizeof(CasPtr) * FLAGS_array_size;                // data area
+  SharedMemorySegment *segment = nullptr;
   auto s = Environment::Get()->NewSharedMemorySegment(FLAGS_shm_segment, size,
-      false, &segment);
+                                                      false, &segment);
   RAW_CHECK(s.ok() && segment, "Error creating memory segment");
   s = segment->Attach();
   RAW_CHECK(s.ok(), "cannot attach");

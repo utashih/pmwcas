@@ -445,6 +445,7 @@ struct DListBench : public Benchmark {
 }  // namespace pmwcas
 
 int main(int argc, char* argv[]) {
+  FLAGS_logtostderr = 1;
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 #ifdef WIN32
@@ -453,10 +454,19 @@ int main(int argc, char* argv[]) {
                            pmwcas::WindowsEnvironment::Create,
                            pmwcas::WindowsEnvironment::Destroy);
 #else
+#ifdef PMDK
+  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("doubly_linked_benchmark_pool",
+                                                    "doubly_linked_layout",
+                                                    static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
+                      pmwcas::PMDKAllocator::Destroy,
+                      pmwcas::LinuxEnvironment::Create,
+                      pmwcas::LinuxEnvironment::Destroy);
+#else
   pmwcas::InitLibrary(pmwcas::TlsAllocator::Create,
-                           pmwcas::TlsAllocator::Destroy,
-                           pmwcas::LinuxEnvironment::Create,
-                           pmwcas::LinuxEnvironment::Destroy);
+                      pmwcas::TlsAllocator::Destroy,
+                      pmwcas::LinuxEnvironment::Create,
+                      pmwcas::LinuxEnvironment::Destroy);
+#endif // PMDK
 #endif
   pmwcas::DumpArgs();
   pmwcas::DListBench test{};

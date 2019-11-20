@@ -75,6 +75,7 @@ struct MwCas : public Benchmark {
     // Ideally the descriptor pool is sized to the number of threads in the
     // benchmark to reduce need for new allocations, etc.
     Allocator::Get()->Allocate((void **)&descriptor_pool_, sizeof(DescriptorPool));
+    new (descriptor_pool_) DescriptorPool(FLAGS_descriptor_pool_size, FLAGS_threads);
     Descriptor *pool_va = nullptr;
     std::string segname(FLAGS_shm_segment);
     persistent_ = (segname.size() != 0);
@@ -337,7 +338,8 @@ void RunBenchmark() {
   }
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
+  FLAGS_logtostderr = 1;
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 #ifdef WIN32
@@ -346,10 +348,19 @@ int main(int argc, char* argv[]) {
                       pmwcas::WindowsEnvironment::Create,
                       pmwcas::WindowsEnvironment::Destroy);
 #else
+#ifdef PMDK
+  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("mwcas_benchmark_pool",
+                                                    "doubly_linked_layout",
+                                                    static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
+                      pmwcas::PMDKAllocator::Destroy,
+                      pmwcas::LinuxEnvironment::Create,
+                      pmwcas::LinuxEnvironment::Destroy);
+#else
   pmwcas::InitLibrary(pmwcas::TlsAllocator::Create,
                       pmwcas::TlsAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
+#endif // PMDK
 #endif
   RunBenchmark();
   return 0;
