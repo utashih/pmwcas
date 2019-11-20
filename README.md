@@ -20,6 +20,7 @@ People may argue this breaks the lock-free design philosophy,
 and in some extreme cases no progress can be made. 
 They are theoretically correct, but the goal of my improvements is to make PMwCAS usable in more practical scenarios.
 It's practical to make assumption that, real-world high performance system never over-subscribe their cpu cores!
+- Track the performance
 
 **Add** some new features and ideas to the current implementation. 
 Although these improvements are never intended to make a new paper, PMwCAS itself might affiliate with other academic projects, which I can't talk too much here.

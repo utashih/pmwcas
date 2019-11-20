@@ -231,10 +231,8 @@ public:
   Status Abort();
 
 private:
-#if defined(GOOGLE_FRAMEWORK) && defined(APPS)
   /// Allow tests to access privates for failure injection purposes.
   FRIEND_TEST(PMwCASTest, SingleThreadedRecovery);
-#endif
 
   friend class DescriptorPool;
 
