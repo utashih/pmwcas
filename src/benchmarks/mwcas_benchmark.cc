@@ -349,7 +349,7 @@ int main(int argc, char *argv[]) {
                       pmwcas::WindowsEnvironment::Destroy);
 #else
 #ifdef PMDK
-  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("mwcas_benchmark_pool",
+  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("/mnt/pmem0/mwcas_benchmark_pool",
                                                     "doubly_linked_layout",
                                                     static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
                       pmwcas::PMDKAllocator::Destroy,

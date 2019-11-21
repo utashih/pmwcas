@@ -11,6 +11,8 @@ include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -march=native")
+
 # Set backend to PMDK by default to build persistent version
 set(PMEM_BACKEND "PMDK" CACHE STRING "Persistent memory backend type")
 string(TOUPPER ${PMEM_BACKEND} PMEM_BACKEND)
@@ -100,6 +102,7 @@ if(${GOOGLE_FRAMEWORK})
   FetchContent_GetProperties(glog)
   if (NOT glog_POPULATED)
     FetchContent_Populate(glog)
+    set(WITH_GFLAGS OFF CACHE BOOL "we don't want gflags")
     add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
   endif()
 
@@ -122,16 +125,13 @@ set (PMWCAS_LINK_LIBS
   glog::glog
 )
 
-if(${GOOGLE_FRAMEWORK})
-  # Set the list of libraries that use pmwcas
-  set (PMWCAS_APPS_LINK_LIBS
-    pmwcas
-    glog::glog
-    gflags::gflags
-    gtest_main 
-    double-linked-list
-  )
-endif()
+# Set the list of libraries that use pmwcas
+set (PMWCAS_APPS_LINK_LIBS
+  pmwcas
+  glog::glog
+  gtest_main 
+  double-linked-list
+)
 
 if(WIN32)
   set(WINDOWS_ENVIRONMENT_SOURCES
@@ -148,10 +148,10 @@ add_definitions(-DAPPS)
 
 # Set the link libraries to for test compilation
 set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
-set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma")
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma -fPIC")
 
 # Set the link libraries to for benchmark binary compilation
-set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-lpthread -lrt -lnuma")
+set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-fPIC -lpthread -lrt -lnuma")
 
 enable_testing()
 
