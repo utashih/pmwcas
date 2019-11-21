@@ -19,8 +19,21 @@ stages:
   jobs:
   - job: test_all
     steps:
-      - script: docker run pmwcas
+      - script: docker run --name=pmwcas-test pmwcas 
         displayName: 'run the tests'
+
+      - script: docker cp pmwcas-test:/usr/src/pmwcas/build_tmp/Testing .
+        displayName: 'copy the test results'
+      
+      - task: PublishTestResults@2
+        inputs:
+          testResultsFormat: 'CTest'
+          testResultsFiles: '**/LastTest.log'
+
+      - script: docker rm pmwcas-test 
+        displayName: 'clean the image'
+        condition: always()
+
       - script: docker rmi pmwcas --force
-        displayName: 'clean the resources'
+        displayName: 'clean the container'
         condition: always()

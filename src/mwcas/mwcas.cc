@@ -693,7 +693,6 @@ retry_entry:
   }
 #endif
 
-
   // Switch to the final state, the MwCAS concludes after this point
   CompareExchange32(&status_, my_status | kStatusDirtyFlag, kStatusUndecided);
 

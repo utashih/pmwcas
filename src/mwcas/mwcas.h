@@ -609,10 +609,6 @@ private:
   #endif
 
     if(val & kMwCASFlag) {
-      // While the address contains a descriptor, help along completing the CAS
-      Descriptor* desc = (Descriptor*)Descriptor::CleanPtr(val);
-      RAW_CHECK(desc, "invalid descriptor pointer");
-      desc->VolatileMwCAS(1);
       goto retry;
     }
 
@@ -642,10 +638,6 @@ private:
 #endif
 
     if(val & kMwCASFlag) {
-      // While the address contains a descriptor, help along completing the CAS
-      Descriptor* desc = (Descriptor*)Descriptor::CleanPtr(val);
-      RAW_CHECK(desc, "invalid descriptor pointer");
-      desc->VolatileMwCAS(1);
       goto retry;
     }
     return val;
@@ -680,17 +672,11 @@ retry:
 #endif
 
     if(val & kDirtyFlag) {
-      PersistValue();
-      CompareExchange64((uint64_t*)&value_, val & ~kDirtyFlag, val);
-      val &= ~kDirtyFlag;
+      goto retry;
     }
     RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on return value");
 
     if(val & kMwCASFlag) {
-      // While the address contains a descriptor, help along completing the CAS
-      Descriptor* desc = (Descriptor*)Descriptor::CleanPtr(val);
-      RAW_CHECK(desc, "invalid descriptor pointer");
-      desc->PersistentMwCAS(1);
       goto retry;
     }
     RAW_CHECK(IsCleanPtr(val), "dirty flag set on return value");
@@ -722,17 +708,11 @@ retry:
 #endif
 
     if(val & kDirtyFlag) {
-      PersistValue();
-      CompareExchange64((uint64_t*)&value_, val & ~kDirtyFlag, val);
-      val &= ~kDirtyFlag;
+      goto retry;
     }
     RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on return value");
 
     if(val & kMwCASFlag) {
-      // While the address contains a descriptor, help along completing the CAS
-      Descriptor* desc = (Descriptor*)Descriptor::CleanPtr(val);
-      RAW_CHECK(desc, "invalid descriptor pointer");
-      desc->PersistentMwCAS(1);
       goto retry;
     }
     RAW_CHECK(IsCleanPtr(val), "dirty flag set on return value");
