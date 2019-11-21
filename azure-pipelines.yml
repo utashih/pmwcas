@@ -28,7 +28,7 @@ stages:
       - task: PublishTestResults@2
         inputs:
           testResultsFormat: 'CTest'
-          testResultsFiles: '**/LastTest.log'
+          testResultsFiles: '**/Testing/*/Test.xml'
 
       - script: docker rm pmwcas-test 
         displayName: 'clean the image'
