@@ -48,6 +48,9 @@ DEFINE_uint64(write_delay_ns, 0, "NVRAM write delay (ns)");
 DEFINE_bool(emulate_write_bw, false, "Emulate write bandwidth");
 DEFINE_bool(clflush, false, "Use CLFLUSH, instead of spinning delays."
   "write_dealy_ns and emulate_write_bw will be ignored.");
+#ifdef PMDK
+DEFINE_string(pmdk_pool, "/mnt/pmem0/doubly_linked_list_benchmark_pool", "path to pmdk pool");
+#endif
 #endif
 
 //DEFINE_uint64(payload_size, 8, "payload size of each node");
@@ -78,6 +81,10 @@ void DumpArgs() {
     std::cout << "> Args emulate_write_bw " << FLAGS_emulate_write_bw
         << std::endl;
   }
+
+#ifdef PMDK
+   std::cout<<"> Args pmdk_pool "<<FLAGS_pmdk_pool<<std::endl;
+  #endif
 #endif
 
   if(FLAGS_insert_pct + FLAGS_delete_pct + FLAGS_search_pct != 100) {
@@ -455,8 +462,8 @@ int main(int argc, char* argv[]) {
                            pmwcas::WindowsEnvironment::Destroy);
 #else
 #ifdef PMDK
-  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create("doubly_linked_benchmark_pool",
-                                                    "doubly_linked_layout",
+  pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(FLAGS_pmdk_pool.c_str(),
+                                                    "doubly_linked_bench_layout",
                                                     static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
