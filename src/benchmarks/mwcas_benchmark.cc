@@ -83,6 +83,10 @@ struct MwCas : public Benchmark {
     total_success_ = 0;
   }
 
+  inline CasPtr* array_by_index(uint32_t index){
+    return (CasPtr *)((char *)test_array_ + index * kCacheLineSize);
+  }
+
   void Setup(size_t thread_count) {
     // Ideally the descriptor pool is sized to the number of threads in the
     // benchmark to reduce need for new allocations, etc.
@@ -91,7 +95,7 @@ struct MwCas : public Benchmark {
     auto root_obj = reinterpret_cast<PMDKRootObj*>(allocator->GetRoot(sizeof(PMDKRootObj)));
     Allocator::Get()->Allocate((void **)&root_obj->desc_pool_, sizeof(DescriptorPool));
     // Allocate the thread array and initialize to consecutive even numbers
-    Allocator::Get()->Allocate((void **)&root_obj->test_array_, FLAGS_array_size * sizeof(CasPtr));
+    Allocator::Get()->Allocate((void **)&root_obj->test_array_, FLAGS_array_size * kCacheLineSize);
     // TODO: might have some memory leak here, but for benchmark we don't care (yet).
 
     descriptor_pool_ = root_obj->desc_pool_;
@@ -99,7 +103,7 @@ struct MwCas : public Benchmark {
 #else
     Allocator::Get()->Allocate((void **)&descriptor_pool_, sizeof(DescriptorPool));
     // Allocate the thread array and initialize to consecutive even numbers
-    Allocator::Get()->Allocate((void **)&test_array_, FLAGS_array_size * sizeof(CasPtr));
+    Allocator::Get()->Allocate((void **)&test_array_, FLAGS_array_size * kCacheLineSize);
 #endif
     new (descriptor_pool_) DescriptorPool(FLAGS_descriptor_pool_size, FLAGS_threads, true);
 
@@ -109,7 +113,7 @@ struct MwCas : public Benchmark {
 
     // Now we can start from a clean slate (perhaps not necessary)
     for(uint32_t i = 0; i < FLAGS_array_size; ++i) {
-      test_array_[i] = uint64_t(i * 4);
+      *array_by_index(i) = uint64_t(i * 4);
     }
   }
 
@@ -127,12 +131,11 @@ struct MwCas : public Benchmark {
 
     for(uint32_t i = 0; i < FLAGS_array_size; i++) {
       uint32_t idx =
-        uint32_t((uint64_t(test_array_[i]) % (4 * FLAGS_array_size)) / 4);
-      LOG(INFO) << "idx=" << idx << ", pos=" << i << ", val=" <<
-        (uint64_t)test_array_[i];
+          uint32_t((uint64_t(*array_by_index(i)) % (4 * FLAGS_array_size)) / 4);
+      LOG(INFO) << "idx=" << idx << ", pos=" << i << ", val=" << (uint64_t)*array_by_index(i);
 
       if(!(idx >= 0 && idx < FLAGS_array_size)) {
-        LOG(INFO) << "Invalid: pos=" << i << "val=" << uint64_t(test_array_[i]);
+        LOG(INFO) << "Invalid: pos=" << i << "val=" << uint64_t(*array_by_index(i));
         continue;
       }
       found.get()[idx]++;
@@ -174,12 +177,12 @@ struct MwCas : public Benchmark {
       retry:
         uint64_t idx = rng.Generate(FLAGS_array_size);
         for(uint32_t j = 0; j < i; ++j) {
-          if(address[j] == reinterpret_cast<CasPtr*>(&test_array_[idx])) {
+          if(address[j] == reinterpret_cast<CasPtr*>(array_by_index(idx))) {
             goto retry;
           }
         }
-        address[i] = reinterpret_cast<CasPtr*>(&test_array_[idx]);
-        value[i] = test_array_[idx].GetValueProtected();
+        address[i] = reinterpret_cast<CasPtr*>(array_by_index(idx));
+        value[i] = array_by_index(idx)->GetValueProtected();
         CHECK(value[i] % (4 * FLAGS_array_size) >= 0 &&
             (value[i] % (4 * FLAGS_array_size)) / 4 < FLAGS_array_size);
       }

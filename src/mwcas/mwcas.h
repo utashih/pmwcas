@@ -248,7 +248,7 @@ private:
   /// descriptor derived from one of words_, expecting the status_ field
   /// indicates Undecided. [dirty_flag] will be applied on the MwCAS descriptor
   /// address if specified.
-  uint64_t CondCAS(uint32_t word_index, uint64_t dirty_flag = 0);
+  inline uint64_t CondCAS(uint32_t word_index, uint64_t dirty_flag = 0);
 
   /// A version of the MwCAS function that will fail/abort during execution.
   /// This is a private function that should only be used for testing failure
@@ -612,6 +612,12 @@ private:
   #endif
 
     if(val & kMwCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
+      // While the address contains a descriptor, help along completing the CAS
+      Descriptor *desc = (Descriptor *)Descriptor::CleanPtr(val);
+      RAW_CHECK(desc, "invalid descriptor pointer");
+      desc->VolatileMwCAS(1);
+#endif
       goto retry;
     }
 
@@ -641,6 +647,12 @@ private:
 #endif
 
     if(val & kMwCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
+      // While the address contains a descriptor, help along completing the CAS
+      Descriptor *desc = (Descriptor *)Descriptor::CleanPtr(val);
+      RAW_CHECK(desc, "invalid descriptor pointer");
+      desc->VolatileMwCAS(1);
+#endif
       goto retry;
     }
     return val;
@@ -680,6 +692,12 @@ retry:
     RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on return value");
 
     if(val & kMwCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
+      // While the address contains a descriptor, help along completing the CAS
+      Descriptor *desc = (Descriptor *)Descriptor::CleanPtr(val);
+      RAW_CHECK(desc, "invalid descriptor pointer");
+      desc->PersistentMwCAS(1);
+#endif
       goto retry;
     }
     RAW_CHECK(IsCleanPtr(val), "dirty flag set on return value");
@@ -716,6 +734,12 @@ retry:
     RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on return value");
 
     if(val & kMwCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
+      // While the address contains a descriptor, help along completing the CAS
+      Descriptor *desc = (Descriptor *)Descriptor::CleanPtr(val);
+      RAW_CHECK(desc, "invalid descriptor pointer");
+      desc->PersistentMwCAS(1);
+#endif
       goto retry;
     }
     RAW_CHECK(IsCleanPtr(val), "dirty flag set on return value");
