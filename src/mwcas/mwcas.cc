@@ -519,11 +519,13 @@ retry_entry:
 
     // Do we need to help another MWCAS operation?
     if(IsMwCASDescriptorPtr(rval)) {
+#if PMWCAS_THREAD_HELP == 1
       // Clashed with another MWCAS; help complete the other MWCAS if it is
       // still being worked on.
-      Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
+      Descriptor *otherMWCAS = (Descriptor *)CleanPtr(rval);
       otherMWCAS->VolatileMwCAS(calldepth + 1);
       MwCASMetrics::AddHelpAttempt();
+#endif
       goto retry_entry;
     } else {
       // rval must be another value, we failed
@@ -592,11 +594,13 @@ retry_entry:
 
     // Do we need to help another MWCAS operation?
     if(IsMwCASDescriptorPtr(rval)) {
+#if PMWCAS_THREAD_HELP == 1
       // Clashed with another MWCAS; help complete the other MWCAS if it is
       // still being worked on
-      Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
+      Descriptor *otherMWCAS = (Descriptor *)CleanPtr(rval);
       otherMWCAS->VolatileMwCAS(calldepth + 1);
       MwCASMetrics::AddHelpAttempt();
+#endif
       goto retry_entry;
     } else {
       // rval must be another value, we failed
@@ -684,11 +688,41 @@ retry_entry:
     }
 
     // Do we need to help another MWCAS operation?
-    if(IsMwCASDescriptorPtr(rval)) { 
+    if(IsMwCASDescriptorPtr(rval)) {
+#if PMWCAS_THREAD_HELP == 1
+      if (rval & kDirtyFlag) {
+        wd->PersistAddress();
+        CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
+      }
+
+      // Clashed with another MWCAS; help complete the other MWCAS if it is
+      // still in flight.
+      Descriptor *otherMWCAS = (Descriptor *)CleanPtr(rval);
+      otherMWCAS->PersistentMwCAS(calldepth + 1);
+      MwCASMetrics::AddHelpAttempt();
+#endif
       goto retry_entry;
     } else {
       // rval must be another value, we failed
       my_status = kStatusFailed;
+    }
+  }
+#endif
+
+#if PMWCAS_PERSIST_ADDR == 1
+  // Persist all target fields if we successfully installed mwcas descriptor on
+  // all fields.
+  if(my_status == kStatusSucceeded) {
+    for (uint32_t i = 0; i < count_; ++i) {
+      WordDescriptor* wd = &words_[i];
+      if((uint64_t)wd->address_ == Descriptor::kAllocNullAddress){
+        continue;
+      }
+      uint64_t val = *wd->address_;
+      if(val == descptr) {
+        wd->PersistAddress();
+        CompareExchange64(wd->address_, descptr & ~kDirtyFlag, descptr);
+      }
     }
   }
 #endif
@@ -782,15 +816,17 @@ retry_entry:
 
     // Do we need to help another MWCAS operation?
     if(IsMwCASDescriptorPtr(rval)) {
-      if(rval & kDirtyFlag) {
+#if PMWCAS_THREAD_HELP == 1
+      if (rval & kDirtyFlag) {
         wd->PersistAddress();
         CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
       }
       // Clashed with another MWCAS; help complete the other MWCAS if it is
       // still being worked on.
-      Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
+      Descriptor *otherMWCAS = (Descriptor *)CleanPtr(rval);
       otherMWCAS->PersistentMwCAS(calldepth + 1);
       MwCASMetrics::AddHelpAttempt();
+#endif
       goto retry_entry;
     } else {
       // rval must be another value, we failed
@@ -799,6 +835,7 @@ retry_entry:
   }
 #endif
 
+#if PMWCAS_PERSIST_ADDR == 1
   // Persist all target fields if we successfully installed mwcas descriptor on
   // all fields.
   if(my_status == kStatusSucceeded) {
@@ -811,6 +848,7 @@ retry_entry:
       }
     }
   }
+#endif
 
   // The compare exchange below will determine whether the mwcas will roll
   // forward or back on recovery. If we are told to not complete descriptor

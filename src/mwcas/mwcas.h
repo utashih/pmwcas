@@ -93,6 +93,9 @@ struct DescriptorPartition;
 class Descriptor;
 class DescriptorPool;
 
+#define PMWCAS_PERSIST_ADDR 0
+#define PMWCAS_THREAD_HELP 0
+
 class alignas(kCacheLineSize) Descriptor {
   template<typename T> friend class MwcTargetField;
 
