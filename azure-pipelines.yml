@@ -13,16 +13,16 @@ stages:
   jobs:
   - job: build_pmwcas
     steps:
-      - script: docker build -t pmwcas .
+      - script: docker build -t pmwcas_$(Build.BuildId) .
 
 - stage: Test
   jobs:
   - job: test_all
     steps:
-      - script: docker run --name=pmwcas-test pmwcas 
+      - script: docker run --name=pmwcas_$(Build.BuildId)_test pmwcas_$(Build.BuildId) 
         displayName: 'run the tests'
 
-      - script: docker cp pmwcas-test:/usr/src/pmwcas/build_tmp/Testing .
+      - script: docker cp pmwcas_$(Build.BuildId)_test:/usr/src/pmwcas/build_tmp/Testing .
         displayName: 'copy the test results'
       
       - task: PublishTestResults@2
@@ -30,10 +30,10 @@ stages:
           testResultsFormat: 'CTest'
           testResultsFiles: '**/Testing/*/Test.xml'
 
-      - script: docker rm pmwcas-test 
+      - script: docker rm pmwcas_$(Build.BuildId)_test 
         displayName: 'clean the image'
         condition: always()
 
-      - script: docker rmi pmwcas --force
+      - script: docker rmi pmwcas_$(Build.BuildId) --force
         displayName: 'clean the container'
         condition: always()
