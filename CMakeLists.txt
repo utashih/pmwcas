@@ -13,6 +13,11 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -march=native")
 
+if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+  message("-- Release mode, all optimizations enabled")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Ofast")
+endif ()
+
 # Set backend to PMDK by default to build persistent version
 set(PMEM_BACKEND "PMDK" CACHE STRING "Persistent memory backend type")
 string(TOUPPER ${PMEM_BACKEND} PMEM_BACKEND)
