@@ -51,6 +51,10 @@
                 axisPointer: {
                     animation: true
                 },
+                position: function (point, params, dom, rect, size) {
+                    // fixed at top
+                    return [point[0] - 50, '10%'];
+                },
                 enterable: true,
                 textStyle: {
                     fontFamily: 'SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace'
