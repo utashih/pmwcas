@@ -377,10 +377,11 @@ private:
   /// Count of actual descriptors held in #WordDesc
   uint32_t count_;
 
-
   /// A callback for freeing the words listed in [words_] when recycling the
   /// descriptor. Optional: only for applications that use it.
   FreeCallback free_callback_;
+
+  char padding[32];
 
   /// Array of word descriptors bounded DESC_CAP
   WordDescriptor words_[DESC_CAP];
@@ -693,24 +694,25 @@ retry:
   }
 
   // The "protected" variant of GetPersistValue().
-  T GetValueProtectedPersistent() {
+  inline T GetValueProtectedPersistent() {
     MwCASMetrics::AddRead();
 
   retry:
     uint64_t val = (uint64_t)value_;
 #ifndef RTM
     if(val & kCondCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
       RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on CondCAS descriptor");
 
-      Descriptor::WordDescriptor* wd =
-        (Descriptor::WordDescriptor*)Descriptor::CleanPtr(val);
+      Descriptor::WordDescriptor *wd =
+          (Descriptor::WordDescriptor *)Descriptor::CleanPtr(val);
       uint64_t dptr =
-        Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag | kDirtyFlag);
+          Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag | kDirtyFlag);
       CompareExchange64(
-        wd->address_,
-        *wd->status_address_ == Descriptor::kStatusUndecided ?
-            dptr : wd->old_value_,
-        val);
+          wd->address_,
+          *wd->status_address_ == Descriptor::kStatusUndecided ? dptr : wd->old_value_,
+          val);
+#endif
       goto retry;
     }
 #endif

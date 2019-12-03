@@ -39,7 +39,7 @@ class CoreLocal {
 
     uint64_t size = core_count_ *
         ((sizeof(T) + kCacheLineSize - 1) & ~(kCacheLineSize - 1));
-    Allocator::Get()->AllocateAligned((void **) &objects_, size, kCacheLineSize);
+    posix_memalign((void **) &objects_, kCacheLineSize, size);
     if (!objects_) {
       return Status::OutOfMemory();
     }
@@ -52,6 +52,7 @@ class CoreLocal {
       return Status::Corruption("not initialized?");
     }
     Allocator::Get()->FreeAligned(objects_);
+    free(objects_);
     objects_ = nullptr;
     next_free_object_ = 0;
     return Status::OK();
