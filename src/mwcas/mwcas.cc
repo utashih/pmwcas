@@ -733,9 +733,8 @@ retry_entry:
     }
   }
 
-  for (uint32_t i = 0; i < count_; i += 2) {
-    auto &word = words_[i];
-    word.PersistAddress();
+  for (uint32_t i = 0; i < count_; i += 1) {
+    words_[i].PersistAddress();
   }
 
   if(calldepth == 0) {
