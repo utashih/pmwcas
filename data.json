@@ -1,1 +1,1 @@
-{"data": [{"success": 3227520.0, "buildId": 107, "ops": 3902530.0, "gitTag": "18d0a"}], "ciEndpoint": "https://dev.azure.com/haoxiangpeng/pmwcas/_build/results?buildId=", "project": "PMwCAS"}
+{"ciEndpoint": "https://dev.azure.com/haoxiangpeng/pmwcas/_build/results?buildId=", "project": "PMwCAS", "data": [{"ops": 3902530.0, "success": 3227520.0, "gitTag": "18d0a", "buildId": 107}, {"ops": 3870820.0, "success": 3196940.0, "gitTag": "c07c5", "buildId": 108}]}

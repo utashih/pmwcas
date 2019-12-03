@@ -53,7 +53,8 @@
                 },
                 formatter: function (params) {
                     const dataPoint = benchmark.data[params[0].dataIndex];
-                    return `Throughput: ${dataPoint.dataPoint}<br/>
+                    return `Total: ${dataPoint.ops}<br/>
+                    Success: ${dataPoint.success}<br/>
                     Git Tag: ${dataPoint.gitTag}<br/>
                     BuildID: ${dataPoint.buildId}`;
                     // console.log(params);
@@ -88,7 +89,10 @@
             },
             yAxis: {
                 type: 'value',
-                name: "Throughput"
+                name: "Throughput",
+                formatter: function (value, index) {
+                    return `${value / 1000000} M`
+                }
             },
             series: [{
                 data: benchmark.data.map(x => x.ops),
