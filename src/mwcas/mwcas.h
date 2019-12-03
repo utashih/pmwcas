@@ -215,14 +215,6 @@ public:
   uint32_t AddEntry(uint64_t* addr, uint64_t oldval, uint64_t newval,
                     uint32_t recycle_policy = kRecycleNever);
 
-  /// Allocate [size] bytes of memory and store the address in [newval]. Assume
-  /// the allocator features an interface similar to posix_memalign's which
-  /// accepts a reference to the location that will store the address of
-  /// allocated memory. In our case it's [newval]. Note: applies only if the
-  /// MwCAS is intended to change pointer values.
-  uint32_t AllocateAndAddEntry(uint64_t* addr, uint64_t oldval, size_t size,
-                               uint32_t recycle_policy = kRecycleNever);
-
   /// Reserve a slot in the words array, but don't know what the new value is
   /// yet. The application should use GetNewValue[Ptr] to fill in later.
   inline uint32_t ReserveAndAddEntry(uint64_t* addr, uint64_t oldval,
@@ -376,7 +368,7 @@ private:
   Descriptor* next_ptr_;
 
   /// Back pointer to owning partition so the descriptor can be returned to its
-  /// howm partition when it is freed.
+  /// home partition when it is freed.
   DescriptorPartition* owner_partition_;
 
   /// Tracks the current status of the descriptor.
@@ -389,10 +381,6 @@ private:
   /// A callback for freeing the words listed in [words_] when recycling the
   /// descriptor. Optional: only for applications that use it.
   FreeCallback free_callback_;
-
-  /// A callback for allocating memory in AllocateAndAddEntry; the address of
-  /// the allocated memory will be store in [new_value].
-  AllocateCallback allocate_callback_;
 
   /// Array of word descriptors bounded DESC_CAP
   WordDescriptor words_[DESC_CAP];
@@ -486,13 +474,12 @@ private:
   }
 
   // Get a free descriptor from the pool.
-  Descriptor* AllocateDescriptor(Descriptor::AllocateCallback ac,
-    Descriptor::FreeCallback fc);
+  Descriptor* AllocateDescriptor(Descriptor::FreeCallback fc);
   
   // Allocate a free descriptor from the pool using default allocate and
   // free callbacks.
   inline Descriptor* AllocateDescriptor() {
-    return AllocateDescriptor(nullptr, nullptr);
+    return AllocateDescriptor(nullptr);
   }
 };
 

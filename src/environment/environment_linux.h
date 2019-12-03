@@ -471,7 +471,7 @@ class PMDKAllocator : IAllocator {
     return pop;
   }
 
-  void PersistPtr(const void *ptr, uint64_t size){
+  inline void PersistPtr(const void *ptr, uint64_t size){
     pmemobj_persist(pop, ptr, size);
   }
 

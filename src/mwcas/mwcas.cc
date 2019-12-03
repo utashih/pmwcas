@@ -261,8 +261,7 @@ DescriptorPool::~DescriptorPool() {
   MwCASMetrics::Uninitialize();
 }
 
-Descriptor* DescriptorPool::AllocateDescriptor(Descriptor::AllocateCallback ac,
-    Descriptor::FreeCallback fc) {
+Descriptor* DescriptorPool::AllocateDescriptor(Descriptor::FreeCallback fc) {
   thread_local DescriptorPartition* tls_part = nullptr;
   if(!tls_part) {
     // Sometimes e.g., benchmark data loading will create new threads when
@@ -293,7 +292,6 @@ Descriptor* DescriptorPool::AllocateDescriptor(Descriptor::AllocateCallback ac,
 
   MwCASMetrics::AddDescriptorAlloc();
   RAW_CHECK(desc, "null descriptor pointer");
-  desc->allocate_callback_ = ac ? ac : Descriptor::DefaultAllocateCallback;
   desc->free_callback_ = fc ? fc : Descriptor::DefaultFreeCallback;
 
   return desc;
@@ -334,23 +332,6 @@ uint32_t Descriptor::AddEntry(uint64_t* addr, uint64_t oldval, uint64_t newval,
   words_[insertpos].address_ = addr;
   words_[insertpos].old_value_ = oldval;
   words_[insertpos].new_value_ = newval;
-  words_[insertpos].status_address_ = &status_;
-  words_[insertpos].recycle_policy_ = recycle_policy;
-  ++count_;
-  return insertpos;
-}
-
-uint32_t Descriptor::AllocateAndAddEntry(uint64_t* addr, uint64_t oldval,
-      size_t size, uint32_t recycle_policy) {
-  // IsProtected() checks are quite expensive, use DCHECK instead of RAW_CHECK.
-  DCHECK(owner_partition_->garbage_list->GetEpoch()->IsProtected());
-  DCHECK(IsCleanPtr(oldval));
-  int insertpos = GetInsertPosition(addr);
-  RAW_CHECK(insertpos >= 0, "invalid insert position");
-  words_[insertpos].address_ = addr;
-  words_[insertpos].old_value_ = oldval;
-  words_[insertpos].new_value_ = (uint64_t)allocate_callback_(size);
-  RAW_CHECK(words_[insertpos].new_value_, "allocation failed");
   words_[insertpos].status_address_ = &status_;
   words_[insertpos].recycle_policy_ = recycle_policy;
   ++count_;
