@@ -160,6 +160,10 @@ public:
     /// lpid and other memory page pointers along the way.
     uint32_t recycle_policy_;
 
+#ifdef PMEM
+    char padding[32];
+#endif
+
     /// Returns the parent descriptor for this particular word
     inline Descriptor* GetDescriptor() {
       return (Descriptor*)((uint64_t)status_address_ -

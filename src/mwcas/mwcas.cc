@@ -720,7 +720,7 @@ retry_entry:
   // No need to flush again, recovery does not care about the dirty bit
 
   bool succeeded = (status_ == kStatusSucceeded);
-  for(uint32_t i = 0; i < count_; i++) {
+  for(uint32_t i = 0; i < count_; i += 1) {
     WordDescriptor* wd = &words_[i];
     if((uint64_t)wd->address_ == Descriptor::kAllocNullAddress){
       continue;
