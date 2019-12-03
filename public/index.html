@@ -7,6 +7,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <link rel="stylesheet" href="styles.css">
     <title>Continuos Benchmark</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
     <!--[if IE]><link rel="shortcut icon" href="/static/img/icons/favicon.ico"><![endif]-->
 </head>
 
@@ -18,7 +19,6 @@
     </div>
 </body>
 
-<script src="https://cdn.jsdelivr.net/npm/vue"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@4.4.0/dist/echarts.min.js"></script>
 <script>
     var app = new Vue({
@@ -51,6 +51,7 @@
                 axisPointer: {
                     animation: true
                 },
+                enterable: true,
                 textStyle: {
                     fontFamily: 'SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace'
                 },
@@ -58,9 +59,8 @@
                     const dataPoint = benchmark.data[params[0].dataIndex];
                     return `Total: ${(dataPoint.ops / 1000000).toFixed(2)} M/s<br/>
                     Success: ${(dataPoint.success / 1000000).toFixed(2)} M/s<br/>
-                    Git Tag: ${dataPoint.gitTag}<br/>
-                    BuildID: ${dataPoint.buildId}`;
-                    // console.log(params);
+                    Git Tag: <a href=${benchmark.githubEndpoint}${dataPoint.gitTag} target="_blank"> ${dataPoint.gitTag}</a><br/>
+                    BuildID: <a href=${benchmark.ciEndpoint}${dataPoint.buildId} target="_blank"> ${dataPoint.buildId}</a>`;
                 }
             },
             toolbox: {
@@ -111,9 +111,6 @@
             }]
         };
         myChart.setOption(option);
-        myChart.on('click', 'series', function (param) {
-            window.open(benchmark.ciEndpoint + param.name, "_blank");
-        });
     })();
 </script>
 

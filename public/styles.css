@@ -1,3 +1,8 @@
 #app{
 font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
 }
+
+a {
+  color: #ff6b6b;
+  text-decoration: none;
+ }

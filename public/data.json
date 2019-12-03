@@ -1,6 +1,7 @@
 {
     "project": "PMwCAS",
     "ciEndpoint": "https://dev.azure.com/haoxiangpeng/pmwcas/_build/results?buildId=",
+    "githubEndpoint": "https://github.com/XiangpengHao/pmwcas/commits/",
     "data": [
         {
             "gitTag": "abcde",

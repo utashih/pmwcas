@@ -16,7 +16,7 @@ def process():
             bench_data = bench_data.split(' ')
 
         data['data'].append({
-            'gitTag': build_data[0][:5],
+            'gitTag': build_data[0][:7],
             'buildId': int(build_data[1]),
             'ops': float(bench_data[0]),
             'success': float(bench_data[1])

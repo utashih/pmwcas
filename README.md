@@ -2,6 +2,9 @@
 
 [![Build Status](https://dev.azure.com/haoxiangpeng/pmwcas/_apis/build/status/XiangpengHao.pmwcas?branchName=dev)](https://dev.azure.com/haoxiangpeng/pmwcas/_build/latest?definitionId=3&branchName=dev)
 
+The PMwCAS performance is automatically tracked on every commit,
+checkout the visualization here: https://xiangpenghao.github.io/pmwcas.
+
 **Disclaimer:** for a stable and feature-complete PMwCAS please checkout Microsoft's [original repo](https://github.com/microsoft/pmwcas),
 this fork contains some follow up work upon the original PMwCAS, 
 due to limited developing resources,
@@ -20,7 +23,7 @@ People may argue this breaks the lock-free design philosophy,
 and in some extreme cases no progress can be made. 
 They are theoretically correct, but the goal of my improvements is to make PMwCAS usable in more practical scenarios.
 It's practical to make assumption that, real-world high performance system never over-subscribe their cpu cores!
-- Track the performance
+- Track the performance :white_check_mark:
 
 **Add** some new features and ideas to the current implementation. 
 Although these improvements are never intended to make a new paper, PMwCAS itself might affiliate with other academic projects, which I can't talk too much here.
