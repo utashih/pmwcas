@@ -726,15 +726,16 @@ retry_entry:
       continue;
     }
     uint64_t val = succeeded ? wd->new_value_ : wd->old_value_;
-    val |= kDirtyFlag;
     uint64_t clean_descptr = descptr & ~kDirtyFlag;
     if(clean_descptr == CompareExchange64(wd->address_, val, descptr)) {
       // Retry if someone else already cleared the dirty bit
       CompareExchange64(wd->address_, val, clean_descptr);
     }
-    wd->PersistAddress();
-    RAW_CHECK(val & kDirtyFlag, "invalid final value");
-    CompareExchange64(wd->address_, val & ~kDirtyFlag, val);
+  }
+
+  for (uint32_t i = 0; i < count_; i += 2) {
+    auto &word = words_[i];
+    word.PersistAddress();
   }
 
   if(calldepth == 0) {
