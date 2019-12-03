@@ -9,6 +9,9 @@
 #include "util/core_local.h"
 #include "util/random_number_generator.h"
 
+#include <iostream>
+#include <fstream>
+
 using namespace pmwcas::benchmark;
 
 DEFINE_string(benchmarks,
@@ -280,6 +283,13 @@ Status RunMwCas() {
       (double)test.GetOperationCount() / test.GetRunSeconds());
   printf("mwcas: %.2f successful updates/sec\n",
       (double)test.GetTotalSuccess() / test.GetRunSeconds());
+
+  std::ofstream outfile;
+  outfile.open("mwcas_bench_output.txt");
+  outfile << (double)test.GetOperationCount() / test.GetRunSeconds() << " ";
+  outfile << (double)test.GetTotalSuccess() / test.GetRunSeconds();
+  outfile.close();
+
   return Status::OK();
 }
 
