@@ -12,7 +12,7 @@ def process():
 
         bench_data = []
         with open('bench_data') as bench:
-            bench_data = bench.readlines[0]
+            bench_data = bench.readlines()[0]
             bench_data = bench_data.split(' ')
 
         data['data'].append({
