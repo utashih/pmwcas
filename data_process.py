@@ -18,8 +18,8 @@ def process():
         data['data'].append({
             'gitTag': build_data[0][:5],
             'buildId': int(build_data[1]),
-            'ops': int(bench_data[0]),
-            'success': int(bench_data[1])
+            'ops': float(bench_data[0]),
+            'success': float(bench_data[1])
         })
 
     with open('data.json', 'w') as f:
