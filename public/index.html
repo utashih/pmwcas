@@ -51,9 +51,13 @@
                 axisPointer: {
                     animation: true
                 },
+                textStyle: {
+                    fontFamily: 'SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace'
+                },
                 formatter: function (params) {
                     const dataPoint = benchmark.data[params[0].dataIndex];
-                    return `Throughput: ${dataPoint.dataPoint}<br/>
+                    return `Total: ${(dataPoint.ops / 1000000).toFixed(2)} M/s<br/>
+                    Success: ${(dataPoint.success / 1000000).toFixed(2)} M/s<br/>
                     Git Tag: ${dataPoint.gitTag}<br/>
                     BuildID: ${dataPoint.buildId}`;
                     // console.log(params);
@@ -88,7 +92,12 @@
             },
             yAxis: {
                 type: 'value',
-                name: "Throughput"
+                name: "Throughput",
+                axisLabel: {
+                    formatter: function (value) {
+                        return (value / 1000000).toFixed(2) + ' M';
+                    }
+                }
             },
             series: [{
                 data: benchmark.data.map(x => x.ops),
