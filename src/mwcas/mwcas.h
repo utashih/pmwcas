@@ -77,13 +77,13 @@
 #include <assert.h>
 #include <cstdint>
 #include <mutex>
-#include "common/allocator_internal.h"
-#include "common/environment_internal.h"
-#include "common/epoch.h"
-#include "common/garbage_list_unsafe.h"
+#include "src/common/allocator_internal.h"
+#include "src/common/environment_internal.h"
+#include "src/common/epoch.h"
+#include "src/common/garbage_list_unsafe.h"
 #include "include/environment.h"
 #include "metrics.h"
-#include "util/nvram.h"
+#include "src/util/nvram.h"
 
 
 namespace pmwcas {

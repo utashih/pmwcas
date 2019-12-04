@@ -5,7 +5,7 @@
 
 #include <functional>
 #include <memory>
-#include "common/allocator_internal.h"
+#include "src/common/allocator_internal.h"
 
 namespace pmwcas {
 

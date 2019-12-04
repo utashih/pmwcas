@@ -5,11 +5,11 @@
 
 #include <mutex>
 #include <atomic>
-#include "common/allocator_internal.h"
-#include "common/epoch.h"
-#include "common/garbage_list.h"
-#include "util/macros.h"
-#include "util/atomics.h"
+#include "src/common/allocator_internal.h"
+#include "src/common/epoch.h"
+#include "src/common/garbage_list.h"
+#include "src/util/macros.h"
+#include "src/util/atomics.h"
 #include "include/allocator.h"
 
 namespace pmwcas {

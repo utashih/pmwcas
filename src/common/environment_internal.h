@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include "include/environment.h"
 #include "include/status.h"
-#include "util/auto_ptr.h"
+#include "src/util/auto_ptr.h"
 
 namespace pmwcas {
 

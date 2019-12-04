@@ -3,7 +3,7 @@
 
 #pragma once
 #include <iostream>
-#include "util/core_local.h"
+#include "src/util/core_local.h"
 
 namespace pmwcas {
 class DescriptorPool;

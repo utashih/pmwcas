@@ -11,7 +11,7 @@
 #include <list>
 #include <mutex>
 #include "include/status.h"
-#include "util/macros.h"
+#include "src/util/macros.h"
 
 
 namespace pmwcas {

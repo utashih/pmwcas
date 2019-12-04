@@ -21,8 +21,8 @@
 #include "include/environment.h"
 #include "include/allocator.h"
 #include "include/status.h"
-#include "util/auto_ptr.h"
-#include "util/macros.h"
+#include "src/util/auto_ptr.h"
+#include "src/util/macros.h"
 
 namespace pmwcas {
 

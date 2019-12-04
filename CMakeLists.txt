@@ -18,35 +18,46 @@ if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Ofast")
 endif ()
 
-# Set backend to PMDK by default to build persistent version
-set(PMEM_BACKEND "PMDK" CACHE STRING "Persistent memory backend type")
-string(TOUPPER ${PMEM_BACKEND} PMEM_BACKEND)
 
-# Both volatile and persistent versions are supported, by setting PMEM_BACKEND to:
-# PMDK    : use PMDK for persistence
-# EMU     : use simple shared memory for emulating persistent memory. This
-#           should only be used for experimental and profiling purpose. No real
-#           persistence is guaranteed.
-# VOLATILE: turn off persistence and build a volatile version, no persistence
-#           whatsoever. Equivalent to the original MwCAS operation.
-#
-# If persistent memory support is turned on, in the code we define both PMEM and
-# the corresponding macro for the backend. Code that is agnostic to the backend
-# is wrapped by PMEM; code that is specific to the backend is wrapped around by
-# PMEMEMU (for using emulation) or PMDK (for using PMDK).
-if(${PMEM_BACKEND} STREQUAL "PMDK")
-  add_definitions(-DPMEM)
-  add_definitions(-DPMDK)
-  message(STATUS "Persistence support: PMDK")
-elseif(${PMEM_BACKEND} STREQUAL "EMU")
-  add_definitions(-DPMEM)
-  add_definitions(-DPMEMEMU)
-  message(STATUS "Persistence support: emulation")
-elseif(${PMEM_BACKEND} STREQUAL "VOLATILE")
-  message(STATUS "Persistence support: off")
-else()
-  message(FATAL_ERROR "Unsupported persistent memory backend: ${PMEM_BACKEND}")
-endif()
+FUNCTION(PMWCAS_DEFINE_ENV)
+  # Set backend to PMDK by default to build persistent version
+  set(PMEM_BACKEND "PMDK" CACHE STRING "Persistent memory backend type")
+  string(TOUPPER ${PMEM_BACKEND} PMEM_BACKEND)
+
+  # Both volatile and persistent versions are supported, by setting PMEM_BACKEND to:
+  # PMDK    : use PMDK for persistence
+  # EMU     : use simple shared memory for emulating persistent memory. This
+  #           should only be used for experimental and profiling purpose. No real
+  #           persistence is guaranteed.
+  # VOLATILE: turn off persistence and build a volatile version, no persistence
+  #           whatsoever. Equivalent to the original MwCAS operation.
+  #
+  # If persistent memory support is turned on, in the code we define both PMEM and
+  # the corresponding macro for the backend. Code that is agnostic to the backend
+  # is wrapped by PMEM; code that is specific to the backend is wrapped around by
+  # PMEMEMU (for using emulation) or PMDK (for using PMDK).
+  if(${PMEM_BACKEND} STREQUAL "PMDK")
+    add_definitions(-DPMEM)
+    add_definitions(-DPMDK)
+    message(STATUS "Persistence support: PMDK")
+  elseif(${PMEM_BACKEND} STREQUAL "EMU")
+    add_definitions(-DPMEM)
+    add_definitions(-DPMEMEMU)
+    message(STATUS "Persistence support: emulation")
+  elseif(${PMEM_BACKEND} STREQUAL "VOLATILE")
+    message(STATUS "Persistence support: off")
+  else()
+    message(FATAL_ERROR "Unsupported persistent memory backend: ${PMEM_BACKEND}")
+  endif()
+
+  # Descriptor capacity - default four words max
+  set(DESC_CAP "4" CACHE STRING "Descriptor capacity")
+  add_definitions(-DDESC_CAP=${DESC_CAP})
+  message(STATUS "Descirptor capacity: ${DESC_CAP}")
+ENDFUNCTION()
+
+# The PMWCAS_DEFINE_ENV is used for libraries depend on it to properly setup compile definitions.
+PMWCAS_DEFINE_ENV()
 
 # Turn off RTM by default - only allowed when persistence is turned off (i.e.,
 # PMEM_BACKEND == VOLATILE
@@ -66,10 +77,6 @@ if(${PMEM_BACKEND} STREQUAL "PMDK")
 endif()
 ##############################################
 
-# Descriptor capacity - default four words max
-set(DESC_CAP "4" CACHE STRING "Descriptor capacity")
-add_definitions(-DDESC_CAP=${DESC_CAP})
-message(STATUS "Descirptor capacity: ${DESC_CAP}")
 
 option(GOOGLE_FRAMEWORK "Use glog, gflags and gtest" ON)
 if(${GOOGLE_FRAMEWORK})

@@ -6,8 +6,9 @@
 #include "include/allocator.h"
 #include "include/environment.h"
 #include "include/status.h"
-#include "common/allocator_internal.h"
-#include "common/environment_internal.h"
+#include "src/common/allocator_internal.h"
+#include "src/common/environment_internal.h"
+#include "src/mwcas/mwcas.h"
 
 namespace pmwcas {
 

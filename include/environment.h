@@ -13,8 +13,8 @@
 #include "include/slice.h"
 #include "include/async.h"
 #include "include/allocator.h"
-#include "util/auto_ptr.h"
-#include "common/allocator_internal.h"
+#include "src/util/auto_ptr.h"
+#include "src/common/allocator_internal.h"
 
 #ifdef WIN32
 #include <windows.h>
@@ -228,7 +228,7 @@ class IEnvironment {
 } //namespace pmwcas
 
 #ifdef WIN32
-#include "environment/environment_windows.h"
+#include "src/environment/environment_windows.h"
 #else
-#include "environment/environment_linux.h"
+#include "src/environment/environment_linux.h"
 #endif
