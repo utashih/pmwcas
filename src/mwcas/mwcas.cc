@@ -731,10 +731,7 @@ retry_entry:
       // Retry if someone else already cleared the dirty bit
       CompareExchange64(wd->address_, val, clean_descptr);
     }
-  }
-
-  for (uint32_t i = 0; i < count_; i += 1) {
-    words_[i].PersistAddress();
+    wd->PersistAddress();
   }
 
   if(calldepth == 0) {
