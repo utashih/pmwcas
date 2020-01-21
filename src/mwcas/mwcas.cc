@@ -694,7 +694,6 @@ retry_entry:
   }
 #endif
 
-#if PMWCAS_PERSIST_ADDR == 1
   // Persist all target fields if we successfully installed mwcas descriptor on
   // all fields.
   if(my_status == kStatusSucceeded) {
@@ -710,7 +709,6 @@ retry_entry:
       }
     }
   }
-#endif
 
   // Switch to the final state, the MwCAS concludes after this point
   CompareExchange32(&status_, my_status | kStatusDirtyFlag, kStatusUndecided);
@@ -817,7 +815,6 @@ retry_entry:
   }
 #endif
 
-#if PMWCAS_PERSIST_ADDR == 1
   // Persist all target fields if we successfully installed mwcas descriptor on
   // all fields.
   if(my_status == kStatusSucceeded) {
@@ -830,7 +827,6 @@ retry_entry:
       }
     }
   }
-#endif
 
   // The compare exchange below will determine whether the mwcas will roll
   // forward or back on recovery. If we are told to not complete descriptor
