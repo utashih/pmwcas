@@ -694,21 +694,6 @@ retry_entry:
   }
 #endif
 
-  // Persist all target fields if we successfully installed mwcas descriptor on
-  // all fields.
-  if(my_status == kStatusSucceeded) {
-    for (uint32_t i = 0; i < count_; ++i) {
-      WordDescriptor* wd = &words_[i];
-      if((uint64_t)wd->address_ == Descriptor::kAllocNullAddress){
-        continue;
-      }
-      uint64_t val = *wd->address_;
-      if(val == descptr) {
-        wd->PersistAddress();
-      }
-    }
-  }
-
   // Switch to the final state, the MwCAS concludes after this point
   CompareExchange32(&status_, my_status | kStatusDirtyFlag, kStatusUndecided);
 
