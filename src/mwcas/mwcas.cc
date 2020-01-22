@@ -705,7 +705,6 @@ retry_entry:
       uint64_t val = *wd->address_;
       if(val == descptr) {
         wd->PersistAddress();
-        CompareExchange64(wd->address_, descptr & ~kDirtyFlag, descptr);
       }
     }
   }
@@ -823,7 +822,6 @@ retry_entry:
       uint64_t val = *wd->address_;
       if(val == descptr) {
         wd->PersistAddress();
-        CompareExchange64(wd->address_, descptr & ~kDirtyFlag, descptr);
       }
     }
   }
