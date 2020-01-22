@@ -651,18 +651,19 @@ retry:
 
 #ifndef RTM
     if(val & kCondCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
       RAW_CHECK((val & kDirtyFlag) == 0,
-          "dirty flag set on CondCAS descriptor");
+                "dirty flag set on CondCAS descriptor");
 
-      Descriptor::WordDescriptor* wd =
-        (Descriptor::WordDescriptor*)Descriptor::CleanPtr(val);
+      Descriptor::WordDescriptor *wd =
+          (Descriptor::WordDescriptor *)Descriptor::CleanPtr(val);
       uint64_t dptr =
-        Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag | kDirtyFlag);
+          Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag | kDirtyFlag);
       CompareExchange64(
-        wd->address_,
-        *wd->status_address_ == Descriptor::kStatusUndecided ?
-            dptr : wd->old_value_,
-        val);
+          wd->address_,
+          *wd->status_address_ == Descriptor::kStatusUndecided ? dptr : wd->old_value_,
+          val);
+#endif
       goto retry;
     }
 #endif
