@@ -434,11 +434,10 @@ retry:
   return ret;
 }
 
-#ifdef RTM
 bool Descriptor::RTMInstallDescriptors(uint64_t dirty_flag) {
   uint64_t mwcas_descptr = SetFlags(this, kMwCASFlag | dirty_flag);
   uint64_t tries = 0;
-  static const uint64_t kMaxTries = 10000;
+  static const uint64_t kMaxTries = 10;
 
 retry:
   if(_XBEGIN_STARTED == _xbegin()) {
@@ -457,7 +456,6 @@ retry:
   }
   return false;
 }
-#endif
 
 #ifndef PMEM
 bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
@@ -644,56 +642,57 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
   uint64_t descptr = SetFlags(this, kMwCASFlag | kDirtyFlag);
   uint32_t my_status = kStatusSucceeded;
 
-#ifdef RTM
   // Go to phase 2 directly if helping along.
-  if(calldepth > 0 && !RTMInstallDescriptors(kDirtyFlag)) {
+  if (calldepth > 0) {
     my_status = kStatusFailed;
   }
-#else
 
-  for(uint32_t i = 0; i < count_ && my_status == kStatusSucceeded; ++i) {
-    WordDescriptor* wd = &words_[i];
-    // Skip entries added purely for allocating memory
-    if((uint64_t)wd->address_ == Descriptor::kAllocNullAddress){
-      continue;
-    }
-retry_entry:
-    auto rval = CondCAS(i, kDirtyFlag);
+  // Try RTM install first, if failed go to fallback solution.
+  if (!RTMInstallDescriptors(kDirtyFlag)) {
+    for (uint32_t i = 0; i < count_ && my_status == kStatusSucceeded; ++i) {
+      WordDescriptor* wd = &words_[i];
+      // Skip entries added purely for allocating memory
+      if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
+        continue;
+      }
+    retry_entry:
+      auto rval = CondCAS(i, kDirtyFlag);
 
-    // Ok if a) we succeeded to swap in a pointer to this descriptor or b) some
-    // other thread has already done so. Need to persist all fields (which point
-    // to descriptors) before switching to final status, so that recovery will
-    // know reliably whether to roll forward or back for this descriptor.
-    if(rval == wd->old_value_ || CleanPtr(rval) == (uint64_t)this) {
-      continue;
-    }
-
-    if (rval & kDirtyFlag){
-      goto retry_entry;
-    }
-
-    // Do we need to help another MWCAS operation?
-    if(IsMwCASDescriptorPtr(rval)) {
-#if PMWCAS_THREAD_HELP == 1
-      if (rval & kDirtyFlag) {
-        wd->PersistAddress();
-        CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
+      // Ok if a) we succeeded to swap in a pointer to this descriptor or b)
+      // some other thread has already done so. Need to persist all fields
+      // (which point to descriptors) before switching to final status, so that
+      // recovery will know reliably whether to roll forward or back for this
+      // descriptor.
+      if (rval == wd->old_value_ || CleanPtr(rval) == (uint64_t)this) {
+        continue;
       }
 
-      // Clashed with another MWCAS; help complete the other MWCAS if it is
-      // still in flight.
-      Descriptor *otherMWCAS = (Descriptor *)CleanPtr(rval);
-      otherMWCAS->PersistentMwCAS(calldepth + 1);
-      MwCASMetrics::AddHelpAttempt();
-#endif
-      goto retry_entry;
-    } else {
-      // rval must be another value, we failed
-      my_status = kStatusFailed;
-    }
-  }
-#endif
+      if (rval & kDirtyFlag) {
+        goto retry_entry;
+      }
 
+      // Do we need to help another MWCAS operation?
+      if (IsMwCASDescriptorPtr(rval)) {
+#if PMWCAS_THREAD_HELP == 1
+        if (rval & kDirtyFlag) {
+          wd->PersistAddress();
+          CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
+        }
+
+        // Clashed with another MWCAS; help complete the other MWCAS if it is
+        // still in flight.
+        Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
+        otherMWCAS->PersistentMwCAS(calldepth + 1);
+        MwCASMetrics::AddHelpAttempt();
+#endif
+        goto retry_entry;
+      } else {
+        // rval must be another value, we failed
+        my_status = kStatusFailed;
+      }
+    }
+
+  }  
   // Switch to the final state, the MwCAS concludes after this point
   CompareExchange32(&status_, my_status | kStatusDirtyFlag, kStatusUndecided);
 

@@ -11,7 +11,7 @@ include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -mrtm -march=native")
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
   message("-- Release mode, all optimizations enabled")

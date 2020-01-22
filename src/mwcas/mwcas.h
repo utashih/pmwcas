@@ -250,9 +250,7 @@ private:
 #endif
   }
 
-#ifdef RTM
   bool RTMInstallDescriptors(uint64_t dirty_flag = 0);
-#endif
 
   /// Retrieve the index position in the descriptor of the given address.
   int32_t GetInsertPosition(uint64_t* addr);
