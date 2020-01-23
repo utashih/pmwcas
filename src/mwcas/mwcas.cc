@@ -437,7 +437,7 @@ retry:
 bool Descriptor::RTMInstallDescriptors(uint64_t dirty_flag) {
   uint64_t mwcas_descptr = SetFlags(this, kMwCASFlag | dirty_flag);
   uint64_t tries = 0;
-  static const uint64_t kMaxTries = 10;
+  static const uint64_t kMaxTries = 5;
 
 retry:
   if(_XBEGIN_STARTED == _xbegin()) {
@@ -622,6 +622,9 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
     RAW_CHECK(status_ == kStatusUndecided, "invalid status");
     NVRAM::Flush(sizeof(Descriptor), this);
   }
+  for (uint32_t i = 0; i < sizeof(Descriptor); i += kCacheLineSize) {
+    __builtin_prefetch((char*)this + i * kCacheLineSize, 1);
+  }
 
   auto status = status_;
   if(status & kStatusDirtyFlag) {
@@ -759,7 +762,6 @@ bool Descriptor::PersistentMwCASWithFailure(uint32_t calldepth,
     my_status = kStatusFailed;
   }
 #else
-
   for(uint32_t i = 0; i < count_ && my_status == kStatusSucceeded; ++i) {
     WordDescriptor* wd = &words_[i];
 retry_entry:
