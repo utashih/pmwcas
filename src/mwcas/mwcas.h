@@ -233,7 +233,8 @@ private:
   /// descriptor derived from one of words_, expecting the status_ field
   /// indicates Undecided. [dirty_flag] will be applied on the MwCAS descriptor
   /// address if specified.
-  inline uint64_t CondCAS(uint32_t word_index, uint64_t dirty_flag = 0);
+  inline uint64_t CondCAS(uint32_t word_index, WordDescriptor desc[],
+                          uint64_t dirty_flag = 0);
 
   /// A version of the MwCAS function that will fail/abort during execution.
   /// This is a private function that should only be used for testing failure
@@ -250,7 +251,7 @@ private:
 #endif
   }
 
-  bool RTMInstallDescriptors(uint64_t dirty_flag = 0);
+  bool RTMInstallDescriptors(WordDescriptor all_desc[], uint64_t dirty_flag = 0);
 
   /// Retrieve the index position in the descriptor of the given address.
   int32_t GetInsertPosition(uint64_t* addr);
