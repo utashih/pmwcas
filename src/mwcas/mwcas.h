@@ -233,7 +233,8 @@ private:
   /// descriptor derived from one of words_, expecting the status_ field
   /// indicates Undecided. [dirty_flag] will be applied on the MwCAS descriptor
   /// address if specified.
-  inline uint64_t CondCAS(uint32_t word_index, uint64_t dirty_flag = 0);
+  inline uint64_t CondCAS(uint32_t word_index, WordDescriptor desc[],
+                          uint64_t dirty_flag = 0);
 
   /// A version of the MwCAS function that will fail/abort during execution.
   /// This is a private function that should only be used for testing failure
@@ -251,7 +252,7 @@ private:
   }
 
 #ifdef RTM
-  bool RTMInstallDescriptors(uint64_t dirty_flag = 0);
+  bool RTMInstallDescriptors(WordDescriptor all_desc[], uint64_t dirty_flag = 0);
 #endif
 
   /// Retrieve the index position in the descriptor of the given address.
@@ -357,18 +358,18 @@ private:
               s == kStatusSucceeded || s == kStatusUndecided, "invalid status");
   }
 
+  /// Tracks the current status of the descriptor.
+  uint32_t status_;
+
+  /// Count of actual descriptors held in #WordDesc
+  uint32_t count_;
+
   /// Free list pointer for managing free pre-allocated descriptor pools
   Descriptor* next_ptr_;
 
   /// Back pointer to owning partition so the descriptor can be returned to its
   /// home partition when it is freed.
   DescriptorPartition* owner_partition_;
-
-  /// Tracks the current status of the descriptor.
-  uint32_t status_;
-
-  /// Count of actual descriptors held in #WordDesc
-  uint32_t count_;
 
   /// A callback for freeing the words listed in [words_] when recycling the
   /// descriptor. Optional: only for applications that use it.
