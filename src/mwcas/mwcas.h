@@ -236,20 +236,6 @@ private:
   inline uint64_t CondCAS(uint32_t word_index, WordDescriptor desc[],
                           uint64_t dirty_flag = 0);
 
-  /// A version of the MwCAS function that will fail/abort during execution.
-  /// This is a private function that should only be used for testing failure
-  /// modes and recovery.
-  bool MwCASWithFailure(uint32_t calldepth = 0,
-      bool complete_descriptor_install = false) {
-    RAW_CHECK(status_ == kStatusFinished,
-        "status of descriptor is not kStatusFinished");
-    status_ = kStatusUndecided;
-#ifdef PMEM
-    return PersistentMwCASWithFailure(calldepth, complete_descriptor_install);
-#else
-    return VolatileMwCASWithFailure(calldepth, complete_descriptor_install);
-#endif
-  }
 
 #ifdef RTM
   bool RTMInstallDescriptors(WordDescriptor all_desc[], uint64_t dirty_flag = 0);
