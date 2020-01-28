@@ -112,7 +112,7 @@ void DescriptorPool::Recovery(bool enable_stats) {
 #ifdef PMDK
   auto new_pmdk_pool = reinterpret_cast<PMDKAllocator *>(Allocator::Get())->GetPool();
 #else
-  LOG(FATAL) << "Only recovery with PMDK is supported" << std::endl;
+  static_assert(false, "Only recovery with PMDK is supported");
 #endif
 
   uint64_t adjust_offset = (uint64_t) new_pmdk_pool - pmdk_pool_;
