@@ -4,6 +4,9 @@
 #include <gtest/gtest.h>
 #include <stdlib.h>
 
+#include <random>
+#include <thread>
+
 #include "common/allocator_internal.h"
 #include "include/allocator.h"
 #include "include/environment.h"
@@ -18,126 +21,64 @@
 #include "environment/environment_linux.h"
 #endif
 
+static const uint64_t ARRAY_SIZE = 1024;
+static const uint8_t ARRAY_INIT_VALUE = 3;
+static const uint32_t UPDATE_ROUND = 1024;
+static const uint32_t WORKLOAD_THREAD_CNT = 4;
+
+void ArrayScan(uint64_t* array) {
+  for (uint32_t i = 0; i < ARRAY_SIZE; i += 1) {
+      
+  }
+}
+
 namespace pmwcas {
 GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
-  auto thread_count = Environment::Get()->GetCoreCount();
-  RandomNumberGenerator rng(rand(), 0, kTestArraySize);
-  PMwCASPtr* addresses[kWordsToUpdate];
-  PMwCASPtr* test_array = nullptr;
+  auto* descriptor_pool = new pmwcas::DescriptorPool(10000, 2, false);
+  auto* allocator_ = (PMDKAllocator*)Allocator::Get();
 
-  // Create a shared memory segment. This will serve as our test area for
-  // the first PMwCAS process that "fails" and will be re-attached to a new
-  // descriptor pool and recovered.
-  unique_ptr_t<char> memory_segment = alloc_unique<char>(segment_size);
-  ::memset(memory_segment.get(), 0, segment_size);
-  void* segment_raw = memory_segment.get();
+  uint64_t* array;
+  allocator_->Allocate((void**)&array, sizeof(uint64_t) * ARRAY_SIZE);
+  memset(array, ARRAY_INIT_VALUE, sizeof(uint64_t) * ARRAY_SIZE);
 
-  // Record descriptor count and the initial virtual address of the shm space
-  // for recovery later
-  DescriptorPool::Metadata* metadata = (DescriptorPool::Metadata*)segment_raw;
-  metadata->descriptor_count = kDescriptorPoolSize;
-  metadata->initial_address = (uintptr_t)segment_raw;
+  auto thread_workload = [&]() {
+    std::random_device rd;
+    std::mt19937 eng(rd());
+    std::uniform_int_distribution<> distr(0, ARRAY_SIZE);
 
-  DescriptorPool* pool =
-      (DescriptorPool*)((char*)segment_raw + sizeof(DescriptorPool::Metadata));
+    for (uint32_t i = 0; i < UPDATE_ROUND; i += 1) {
+      auto desc = descriptor_pool->AllocateDescriptor();
 
-  test_array = (PMwCASPtr*)((uintptr_t)segment_raw + sizeof(DescriptorPool) +
-                            sizeof(DescriptorPool::Metadata) +
-                            sizeof(Descriptor) * kDescriptorPoolSize);
-
-  // Create a new descriptor pool using an existing memory block, which will
-  // be reused by new descriptor pools that will recover from whatever is in the
-  // pool from previous runs.
-  new (pool) DescriptorPool(kDescriptorPoolSize, thread_count, false);
-
-  for (uint32_t i = 0; i < kTestArraySize; ++i) {
-    test_array[i] = 0ull;
-  }
-
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    addresses[i] = nullptr;
-  }
-
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-  retry:
-    uint64_t idx = rng.Generate();
-    for (uint32_t existing_entry = 0; existing_entry < i; ++existing_entry) {
-      if (addresses[existing_entry] ==
-          reinterpret_cast<PMwCASPtr*>(&test_array[idx])) {
-        goto retry;
+      /// randomly select array items to perform MwCAS
+      for (uint32_t d = 0; d < DESC_CAP; d += 1) {
+        auto rng_pos = distr(eng);
+        auto item = &array[rng_pos];
+        auto old_val = *item;
+        desc->AddEntry(item, old_val, old_val + 1);
       }
+      desc->MwCAS();
     }
-    addresses[i] = reinterpret_cast<PMwCASPtr*>(&test_array[idx]);
+  };
+
+  /// Step 1: start the workload on multiple threads;
+  std::thread workers[WORKLOAD_THREAD_CNT];
+  for (uint32_t t = 0; t < WORKLOAD_THREAD_CNT; t += 1) {
+    workers[t] = std::thread(thread_workload);
   }
 
-  pool->GetEpoch()->Protect();
+  /// Step 2: wait for some time;
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-  Descriptor* descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
-
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
+  /// Step 3: force kill all running threads without noticing them
+  for (uint32_t t = 0; t < WORKLOAD_THREAD_CNT; t += 1) {
+    /// TODO(hao): this only works on Linux
+    pthread_cancel(workers[t].native_handle());
   }
 
-  EXPECT_TRUE(descriptor->MwCAS());
+  ArrayScan(array);
 
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
-  }
+  descriptor_pool->Recovery(true);
 
-  pool->GetEpoch()->Unprotect();
-  Thread::ClearRegistry(true);
-
-  // Create a fresh descriptor pool from the previous pools existing memory.
-  pool->Recovery(false);
-
-  // The prior MwCAS succeeded, so check whether the pool recovered correctly
-  // by ensuring the updates are still present.
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
-  }
-
-  pool->GetEpoch()->Protect();
-
-  descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
-
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], 1ull, 2ull);
-  }
-
-  EXPECT_FALSE(descriptor->MwCASWithFailure());
-
-  Thread::ClearRegistry(true);
-
-  pool->Recovery(false);
-  // Recovery should have rolled back the previously failed pmwcas.
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
-  }
-
-  pool->GetEpoch()->Protect();
-
-  descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
-
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], 1ull, 2ull);
-  }
-
-  EXPECT_FALSE(descriptor->MwCASWithFailure(0, true));
-
-  Thread::ClearRegistry(true);
-
-  pool->Recovery(false);
-
-  // Recovery should have rolled forward the previously failed pmwcas that made
-  // it through the first phase (installing all descriptors).
-  for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    EXPECT_EQ(2ull, *((uint64_t*)addresses[i]));
-  }
-
-  Thread::ClearRegistry(true);
 }
 }  // namespace pmwcas
 
