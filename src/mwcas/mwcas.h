@@ -101,6 +101,12 @@ public:
   /// Signifies a dirty word requiring cache line write back
   static const uint64_t kDirtyFlag   = (uint64_t)1 << 61;
 
+  /// Flag signifying a conditional CAS is underway for the target word.
+  static const uint64_t kCondCASFlag = (uint64_t)1 << 62;
+
+  /// Flag signifying an multi-word CAS is underway for the target word.
+  static const uint64_t kMwCASFlag = (uint64_t)1 << 63;
+
   /// Garbage list recycle policy: only free [new_value] upon restart
   static const uint32_t kRecycleOnRecovery = 0x1;
   
@@ -270,11 +276,7 @@ private:
   uint32_t ReadPersistStatus();
 #endif
 
-  /// Flag signifying an multi-word CAS is underway for the target word.
-  static const uint64_t kMwCASFlag   = (uint64_t)1 << 63;
 
-  /// Flag signifying a conditional CAS is underway for the target word.
-  static const uint64_t kCondCASFlag = (uint64_t)1 << 62;
 
   /// Returns whether the value given is an MwCAS descriptor or not.
   inline static bool IsMwCASDescriptorPtr(uint64_t value) {
