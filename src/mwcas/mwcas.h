@@ -126,6 +126,29 @@ public:
   /// only used for allocation purpose
   static const uint32_t kAllocNullAddress = 0x0;
 
+  /// Returns whether the value given is an MwCAS descriptor or not.
+  inline static bool IsMwCASDescriptorPtr(uint64_t value) {
+    return value & kMwCASFlag;
+  }
+
+  /// Returns whether the value given is a CondCAS descriptor or not.
+  inline static bool IsCondCASDescriptorPtr(uint64_t value) {
+    return value & kCondCASFlag;
+  }
+
+  /// Returns whether the underlying word is dirty (not surely persisted).
+  inline static bool IsDirtyPtr(uint64_t value) { return value & kDirtyFlag; }
+
+  /// Returns true if the target word has no pmwcas management flags set.
+  inline static bool IsCleanPtr(uint64_t value) {
+    return (value & (kCondCASFlag | kMwCASFlag | kDirtyFlag)) == 0;
+  }
+
+  /// Clear the descriptor flag for the provided /a ptr
+  static inline uint64_t CleanPtr(uint64_t ptr) {
+    return ptr & ~(kMwCASFlag | kCondCASFlag | kDirtyFlag);
+  }
+
   /// Signaure for garbage free callback (see free_callback_ below)
   typedef void (*FreeCallback)(void* context, void* word);
 
@@ -276,32 +299,6 @@ private:
   uint32_t ReadPersistStatus();
 #endif
 
-
-
-  /// Returns whether the value given is an MwCAS descriptor or not.
-  inline static bool IsMwCASDescriptorPtr(uint64_t value) {
-    return value & kMwCASFlag;
-  }
-
-  /// Returns whether the value given is a CondCAS descriptor or not.
-  inline static bool IsCondCASDescriptorPtr(uint64_t value) {
-    return value & kCondCASFlag;
-  }
-
-  /// Returns whether the underlying word is dirty (not surely persisted).
-  inline static bool IsDirtyPtr(uint64_t value) {
-    return value & kDirtyFlag;
-  }
-
-  /// Returns true if the target word has no pmwcas management flags set.
-  inline static bool IsCleanPtr(uint64_t value) {
-    return (value & (kCondCASFlag | kMwCASFlag | kDirtyFlag)) == 0;
-  }
-
-  /// Clear the descriptor flag for the provided /a ptr
-  static inline uint64_t CleanPtr(uint64_t ptr) {
-    return ptr & ~(kMwCASFlag | kCondCASFlag | kDirtyFlag);
-  }
 
   /// Bitwise-or the given flags to the given value
   inline static uint64_t SetFlags(uint64_t value, uint64_t flags) {
