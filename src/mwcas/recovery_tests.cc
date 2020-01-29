@@ -23,7 +23,7 @@
 
 static const uint64_t ARRAY_SIZE = 1024;
 static const uint8_t ARRAY_INIT_VALUE = 0;
-static const uint32_t UPDATE_ROUND = 1024;
+static const uint32_t UPDATE_ROUND = 8192;
 static const uint32_t WORKLOAD_THREAD_CNT = 4;
 
 void ArrayScan(uint64_t* array) {
@@ -43,14 +43,15 @@ void ArrayScan(uint64_t* array) {
       val = val & ~pmwcas::Descriptor::kMwCASFlag;
     }
   }
-  std::cout << "Dirty count: " << dirty_cnt
+  LOG(INFO) << "=======================\nDirty count: " << dirty_cnt
             << "\tCondition CAS count: " << concas_cnt
             << "\tMwCAS count: " << mwcas_cnt << std::endl;
 }
 
 namespace pmwcas {
 GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
-  auto* descriptor_pool = new pmwcas::DescriptorPool(10000, 2, false);
+  auto* descriptor_pool =
+      new pmwcas::DescriptorPool(10000, WORKLOAD_THREAD_CNT + 1, false);
   auto* allocator_ = (PMDKAllocator*)Allocator::Get();
 
   uint64_t** root_obj = (uint64_t**)allocator_->GetRoot(sizeof(uint64_t));
@@ -67,15 +68,23 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
       pmwcas::EpochGuard guard(descriptor_pool->GetEpoch());
       auto desc = descriptor_pool->AllocateDescriptor();
 
+      /// generate unique positions
+      std::set<uint32_t> positions;
+      while (positions.size() < DESC_CAP) {
+        positions.insert(distr(eng));
+      }
+
       /// randomly select array items to perform MwCAS
-      for (uint32_t d = 0; d < DESC_CAP; d += 1) {
-        auto rng_pos = distr(eng);
-        auto item = &array[rng_pos];
+      for (const auto& it : positions) {
+        auto item = &array[it];
         auto old_val = *item;
-        desc->AddEntry(item, old_val, old_val + 1);
+        if (pmwcas::Descriptor::IsCleanPtr(old_val)) {
+          desc->AddEntry(item, old_val, old_val + 1);
+        }
       }
       desc->MwCAS();
     }
+    LOG(INFO) << "finsihed all jobs" << std::endl;
   };
 
   /// Step 1: start the workload on multiple threads;
@@ -85,14 +94,17 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
   }
 
   /// Step 2: wait for some time;
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  // std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
   /// Step 3: force kill all running threads without noticing them
   for (uint32_t t = 0; t < WORKLOAD_THREAD_CNT; t += 1) {
     /// TODO(hao): this only works on Linux
-    pthread_cancel(workers[t].native_handle());
+    pthread_t thread_handler = workers[t].native_handle();
+    workers[t].detach();
+    pthread_cancel(thread_handler);
   }
 
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   ArrayScan(array);
 
   /// Step 4: perform the recovery
@@ -111,9 +123,10 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
       histogram[value] += 1;
     }
   }
-  std::cout << "Printing the array histogram ---------\nvalue\tcount\n";
+  LOG(INFO) << "=============================\nArray histogram\nvalue\tcount"
+            << std::endl;
   for (const auto& item : histogram) {
-    std::cout << item.first << "\t" << item.second << std::endl;
+    LOG(INFO) << item.first << "\t" << item.second << std::endl;
   }
 
   /// Step 6: perform random work over the pool again, there should not be any

@@ -213,9 +213,9 @@ void DescriptorPool::Recovery(bool enable_stats) {
   }
 
   LOG(INFO) << "Found total " << pool_size_ << " descriptors, "
-            << in_progress_desc << " in-progress descriptors, rolled forward "
-            << redo_words << " words, rolled back " << undo_words << " words\n"
-            << invalid_words << " invalid descriptors, " << finished_words
+            << in_progress_desc << " in-progress descriptors,\nrolled forward "
+            << redo_words << " words,\nrolled back " << undo_words << " words\n"
+            << invalid_words << " invalid descriptors,\n" << finished_words
             << " finished descriptors" << std::endl;
 
 #ifdef PMDK
