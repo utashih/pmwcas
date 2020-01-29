@@ -3,16 +3,57 @@
 
 #pragma once
 #include <iostream>
+
 #include "src/util/core_local.h"
 
 namespace pmwcas {
 class DescriptorPool;
+
+enum RecoveryStats {
+  roll_back_desc = 0,
+  roll_forward_desc,
+  invalid_desc,
+  finished_desc,
+  roll_back_words,
+  roll_forward_words,
+  MAX_RECOVERY_ITEM
+};
+
+struct RecoveryMetrics {
+  friend class DescriptorPool;
+  static void IncValue(RecoveryStats item) { stats_[item] += 1; }
+  static void Reset() {
+    memset(stats_, 0, sizeof(uint64_t) * RecoveryStats::MAX_RECOVERY_ITEM);
+  }
+
+  static void PrintStats() {
+    LOG(INFO) << "============================\n";
+    LOG(INFO) << "       Recovery Stats       \n";
+    LOG(INFO) << "Roll back desc:\t" << stats_[roll_back_desc] << std::endl;
+    LOG(INFO) << "Roll back words:\t" << stats_[roll_back_words] << std::endl;
+
+    LOG(INFO) << "Roll forward desc:\t" << stats_[roll_forward_desc]
+              << std::endl;
+    LOG(INFO) << "Roll forward words:\t" << stats_[roll_forward_words]
+              << std::endl;
+
+    LOG(INFO) << "Invalid desc:\t" << stats_[invalid_desc] << std::endl;
+    LOG(INFO) << "Finished desc:\t" << stats_[finished_desc] << std::endl;
+
+    LOG(INFO) << "============================\n";
+  }
+
+ private:
+  static uint64_t stats_[RecoveryStats::MAX_RECOVERY_ITEM];
+};
+
 
 // A singleton (not a real one but works like it) for all MwCAS-related stats.
 // The user must call Initialize() first, each individual thread then should
 // call ThreadInitialize() before start.
 struct MwCASMetrics {
   friend class DescriptorPool;
+
  public:
   MwCASMetrics& operator+=(const MwCASMetrics& other) {
     succeeded_update_count += other.succeeded_update_count;
@@ -57,46 +98,45 @@ struct MwCASMetrics {
         descriptor_scavenge_count(0),
         help_attempt_count(0),
         bailed_help_count(0),
-        descriptor_alloc_count(0) {
-  }
+        descriptor_alloc_count(0) {}
 
   uint64_t GetUpdateAttemptCount() {
     return succeeded_update_count + failed_update_count;
   }
 
   inline void Print() {
-    if(!enabled) return;
+    if (!enabled) return;
     auto update_attempts = GetUpdateAttemptCount();
-    std::cout << "> UpdateAttempts " << update_attempts
-              << " (success " << succeeded_update_count
-              << " failure " << failed_update_count << ")" << std::endl;
+    std::cout << "> UpdateAttempts " << update_attempts << " (success "
+              << succeeded_update_count << " failure " << failed_update_count
+              << ")" << std::endl;
     printf("> UpdateFailurePercent %2f\n",
-      (double)failed_update_count / (double)update_attempts * 100);
+           (double)failed_update_count / (double)update_attempts * 100);
     std::cout << "> Reads " << read_count << std::endl;
-    std::cout << "> DescriptorScavenges " <<
-      descriptor_scavenge_count << std::endl;
+    std::cout << "> DescriptorScavenges " << descriptor_scavenge_count
+              << std::endl;
     std::cout << "> HelpAttempts " << help_attempt_count << std::endl;
     std::cout << "> BailedHelpAttempts " << bailed_help_count << std::endl;
-    std::cout << "> DecsriptorAllocations " <<
-      descriptor_alloc_count << std::endl;
+    std::cout << "> DecsriptorAllocations " << descriptor_alloc_count
+              << std::endl;
   }
 
   // Initialize the global CoreLocal container that encapsulates an array
   // of MwCASMetrics, one per thread. Call this exactly once upon startup.
   static Status Initialize() {
-    if(enabled) MwCASMetrics::instance.Initialize();
+    if (enabled) MwCASMetrics::instance.Initialize();
     return Status::OK();
   }
 
   static Status Uninitialize() {
-    if(enabled) return MwCASMetrics::instance.Uninitialize();
+    if (enabled) return MwCASMetrics::instance.Uninitialize();
     return Status::OK();
   }
 
   static Status ThreadInitialize() {
-    if(enabled) {
-      MwCASMetrics *tls_metrics = nullptr;
-      Allocator::Get()->Allocate((void **)&tls_metrics, sizeof(MwCASMetrics));
+    if (enabled) {
+      MwCASMetrics* tls_metrics = nullptr;
+      Allocator::Get()->Allocate((void**)&tls_metrics, sizeof(MwCASMetrics));
       if (!tls_metrics) {
         return Status::OutOfMemory();
       }
@@ -107,11 +147,11 @@ struct MwCASMetrics {
   }
 
   inline static void AddRead() {
-    if(enabled) ++MyMetric()->read_count;
+    if (enabled) ++MyMetric()->read_count;
   };
 
   inline static void AddSucceededUpdate() {
-    if(enabled) ++MyMetric()->succeeded_update_count;
+    if (enabled) ++MyMetric()->succeeded_update_count;
   }
 
   inline static void AddFailedUpdate() {
@@ -119,11 +159,11 @@ struct MwCASMetrics {
   }
 
   inline static void AddDescriptorScavenge() {
-    if(enabled) ++MyMetric()->descriptor_scavenge_count;
+    if (enabled) ++MyMetric()->descriptor_scavenge_count;
   }
 
   inline static void AddHelpAttempt() {
-    if(enabled) ++MyMetric()->help_attempt_count;
+    if (enabled) ++MyMetric()->help_attempt_count;
   }
 
   inline static void AddBailedHelp() {
@@ -134,9 +174,9 @@ struct MwCASMetrics {
     if (enabled) ++MyMetric()->descriptor_alloc_count;
   }
 
-  inline static void Sum(MwCASMetrics &sum) {
+  inline static void Sum(MwCASMetrics& sum) {
     for (uint32_t i = 0; (i < instance.NumberOfObjects()) && enabled; ++i) {
-      auto *thread_metric = *instance.GetObject(i);
+      auto* thread_metric = *instance.GetObject(i);
       sum += *thread_metric;
     }
   }
@@ -148,7 +188,7 @@ struct MwCASMetrics {
   }
 
   static bool enabled;
-  static CoreLocal<MwCASMetrics *> instance;
+  static CoreLocal<MwCASMetrics*> instance;
 
   uint64_t succeeded_update_count;
   uint64_t failed_update_count;

@@ -13,6 +13,7 @@ namespace pmwcas {
 
 bool MwCASMetrics::enabled = false;
 CoreLocal<MwCASMetrics*> MwCASMetrics::instance;
+uint64_t RecoveryMetrics::stats_[RecoveryStats::MAX_RECOVERY_ITEM] = {0};
 
 DescriptorPartition::DescriptorPartition(EpochManager* epoch,
     DescriptorPool* pool)
@@ -90,6 +91,7 @@ DescriptorPool::DescriptorPool(
 #ifdef PMEM
 void DescriptorPool::Recovery(bool enable_stats) {
   MwCASMetrics::enabled = enable_stats;
+  RecoveryMetrics::Reset();
 
   auto s = MwCASMetrics::Initialize();
   RAW_CHECK(s.ok(), "failed initializing metric objects");
@@ -119,9 +121,6 @@ void DescriptorPool::Recovery(bool enable_stats) {
   descriptors_ = reinterpret_cast<Descriptor *>((uint64_t) descriptors_ + adjust_offset);
 
   // begin recovery process
-  uint64_t in_progress_desc = 0, redo_words = 0, undo_words = 0,
-           invalid_words = 0, finished_words = 0;
-
   // Iterate over the whole desc pool, see if there's anything we can do
   for (uint32_t i = 0; i < pool_size_; ++i) {
     auto& desc = descriptors_[i];
@@ -129,7 +128,7 @@ void DescriptorPool::Recovery(bool enable_stats) {
     if (desc.status_ == Descriptor::kStatusInvalid) {
       // Must be a new pool - comes with everything zeroed but better
       // find this as we look at the first descriptor.
-      invalid_words += 1;
+      RecoveryMetrics::IncValue(invalid_desc);
       continue;
     }
 
@@ -147,11 +146,12 @@ void DescriptorPool::Recovery(bool enable_stats) {
     // Otherwise do recovery
     uint32_t status = desc.status_ & ~Descriptor::kStatusDirtyFlag;
     if (status == Descriptor::kStatusFinished) {
-      finished_words += 1;
+      RecoveryMetrics::IncValue(finished_desc);
       continue;
     } else if (status == Descriptor::kStatusUndecided ||
                status == Descriptor::kStatusFailed) {
-      in_progress_desc++;
+      RecoveryMetrics::IncValue(roll_back_desc);
+
       for (int w = 0; w < desc.count_; ++w) {
         auto& word = desc.words_[w];
         if ((uint64_t)word.address_ == Descriptor::kAllocNullAddress) {
@@ -168,14 +168,14 @@ void DescriptorPool::Recovery(bool enable_stats) {
           // value.
           *word.address_ = word.old_value_;
           word.PersistAddress();
-          undo_words++;
+          RecoveryMetrics::IncValue(roll_back_words);
           LOG(INFO) << "Applied old value 0x" << std::hex << word.old_value_
                     << " at 0x" << word.address_ << std::endl;
         }
       }
     } else {
       RAW_CHECK(status == Descriptor::kStatusSucceeded, "invalid status");
-      in_progress_desc++;
+      RecoveryMetrics::IncValue(roll_forward_desc);
 
       for (int w = 0; w < desc.count_; ++w) {
         auto& word = desc.words_[w];
@@ -190,7 +190,7 @@ void DescriptorPool::Recovery(bool enable_stats) {
         if (val == (uint64_t)&desc) {
           *word.address_ = word.new_value_;
           word.PersistAddress();
-          redo_words++;
+          RecoveryMetrics::IncValue(roll_forward_words);
           LOG(INFO) << "Applied new value 0x" << std::hex << word.new_value_
                     << " at 0x" << word.address_;
         }
@@ -211,12 +211,7 @@ void DescriptorPool::Recovery(bool enable_stats) {
                 "invalid word value");
     }
   }
-
-  LOG(INFO) << "Found total " << pool_size_ << " descriptors, "
-            << in_progress_desc << " in-progress descriptors,\nrolled forward "
-            << redo_words << " words,\nrolled back " << undo_words << " words\n"
-            << invalid_words << " invalid descriptors,\n" << finished_words
-            << " finished descriptors" << std::endl;
+  RecoveryMetrics::PrintStats();
 
 #ifdef PMDK
   // Set the new pmdk_pool addr
