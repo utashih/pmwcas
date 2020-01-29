@@ -27,7 +27,7 @@ static const uint8_t ARRAY_INIT_VALUE = 0;
 static const uint32_t UPDATE_ROUND = 1024 * 1024;
 static const uint32_t WORKLOAD_THREAD_CNT = 4;
 
-void ArrayScan(uint64_t* array) {
+void ArrayPreScan(uint64_t* array) {
   uint64_t dirty_cnt{0}, concas_cnt{0}, mwcas_cnt{0};
   for (uint32_t i = 0; i < ARRAY_SIZE; i += 1) {
     uint64_t val = array[i];
@@ -47,6 +47,16 @@ void ArrayScan(uint64_t* array) {
   LOG(INFO) << "=======================\nDirty count: " << dirty_cnt
             << "\tCondition CAS count: " << concas_cnt
             << "\tMwCAS count: " << mwcas_cnt << std::endl;
+}
+
+void ArraySanityCheck(uint64_t* array) {
+  /// This invariant should be unconditionally kept: the sum of the array should
+  /// be the multiple of DESC_CAP
+  uint64_t sum{0};
+  for (uint32_t i = 0; i < ARRAY_SIZE; i += 1) {
+    sum += array[i];
+  }
+  ASSERT_EQ(sum % DESC_CAP, 0);
 }
 
 struct RootObj {
@@ -154,10 +164,12 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
   auto descriptor_pool = root_obj->pool_addr;
   uint64_t* array = root_obj->array;
 
-  ArrayScan(array);
+  ArrayPreScan(array);
 
   /// Step 4: perform the recovery
   descriptor_pool->Recovery(false);
+
+  ArraySanityCheck(array);
 
   /// Step 5: check every item in the array
   std::map<uint64_t, uint32_t> histogram;
@@ -191,6 +203,8 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
   for (uint32_t t = 0; t < WORKLOAD_THREAD_CNT; t += 1) {
     workers[t].join();
   }
+
+  ArraySanityCheck(array);
 }
 }  // namespace pmwcas
 

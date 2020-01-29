@@ -184,10 +184,14 @@ void DescriptorPool::Recovery(bool enable_stats) {
           continue;
         }
         uint64_t val = Descriptor::CleanPtr(*word.address_);
-        val += adjust_offset;
-        RAW_CHECK(val != (uint64_t)&word, "invalid field value");
+        RAW_CHECK((val + adjust_offset) != (uint64_t)&word,
+                  "invalid field value");
 
-        if (val == (uint64_t)&desc) {
+        /// Our new protocal do not require a flush after the descriptors are
+        /// installed, thus once the status is succeeded, the address can be old
+        /// value or the descriptor
+        if ((val + adjust_offset) == (uint64_t)&desc ||
+            val == word.old_value_) {
           *word.address_ = word.new_value_;
           word.PersistAddress();
           RecoveryMetrics::IncValue(roll_forward_words);
