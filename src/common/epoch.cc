@@ -348,10 +348,10 @@ EpochManager::MinEpochTable::ReserveEntryForThread() {
 * thread will ever have ID on Windows 0.
 * http://msdn.microsoft.com/en-us/library/windows/desktop/ms686746(v=vs.85).aspx
 */
-EpochManager::MinEpochTable::Entry*
-EpochManager::MinEpochTable::ReserveEntry(uint64_t start_index,
-    uint64_t thread_id) {
-  for(;;) {
+EpochManager::MinEpochTable::Entry* EpochManager::MinEpochTable::ReserveEntry(
+    uint64_t start_index, uint64_t thread_id) {
+  DCHECK(thread_id != 0);
+  for (;;) {
     // Reserve an entry in the table.
     for(uint64_t i = 0; i < size_; ++i) {
       uint64_t indexToTest = (start_index + i) & (size_ - 1);
