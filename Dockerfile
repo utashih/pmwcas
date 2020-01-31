@@ -8,4 +8,4 @@ RUN mkdir build_tmp \
     &&  cmake -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_BUILD_TYPE=Release -DPMEM_BACKEND=PMDK -DGOOGLE_FRAMEWORK=1 .. \
     &&  make -j4 
 
-ENTRYPOINT make -C build_tmp test ARGS="-E logging -T Test"
+ENTRYPOINT make -C build_tmp test ARGS="-E \"(logging)|(Recovery))\" -T Test"
