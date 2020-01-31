@@ -255,6 +255,10 @@ class GarbageListUnsafe : public IGarbageList {
       ++scavenged;
     }
 
+    /// This does not look good.
+    LOG_IF(WARNING, scavenged == 0)
+        << "No safe garbage scavenged!" << std::endl;
+
     return scavenged;
   }
 
