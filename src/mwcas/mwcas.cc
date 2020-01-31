@@ -191,6 +191,7 @@ void DescriptorPool::Recovery(bool enable_stats) {
         /// installed, thus once the status is succeeded, the address can be old
         /// value or the descriptor
         if ((val + adjust_offset) == (uint64_t)&desc ||
+            (val + adjust_offset) == (uint64_t)&word ||
             val == word.old_value_) {
           *word.address_ = word.new_value_;
           word.PersistAddress();

@@ -64,6 +64,7 @@ PMWCAS_DEFINE_ENV()
 option(WITH_RTM "Use RTM for installing descriptors" OFF)
 if(WITH_RTM)
   add_definitions(-DRTM)
+  message("-- RTM configured")
 endif()
 
 ##################### PMDK ####################
