@@ -106,7 +106,7 @@ void thread_workload(pmwcas::DescriptorPool* descriptor_pool, uint64_t* array,
 namespace pmwcas {
 void child_process_work() {
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(
-                          "mwcas_test_pool", "mwcas_linked_layout",
+                          "/mnt/pmem0/mwcas_test_pool", "mwcas_linked_layout",
                           static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
@@ -141,7 +141,7 @@ void child_process_work() {
   LOG(INFO) << "Child process finished, this should not happen" << std::endl;
 }
 
-GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
+GTEST_TEST(PMwCASTest, RecoverySingleThreaded) {
   pid_t pid = fork();
   if (pid > 0) {
     /// Step 2: wait for some time;
@@ -157,7 +157,7 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
     LOG(FATAL) << "fork failed" << std::endl;
   }
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(
-                          "mwcas_test_pool", "mwcas_linked_layout",
+                          "/mnt/pmem0/mwcas_test_pool", "mwcas_linked_layout",
                           static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
