@@ -194,8 +194,8 @@ void thread_work(uint64_t* array, DescriptorPool* pool,
 
   auto begin = std::chrono::steady_clock::now();
   uint64_t elapsed = 0;
-  pmwcas::EpochGuard guard(pool->GetEpoch());
   while (elapsed < time_in_milliseconds) {
+    pmwcas::EpochGuard guard(pool->GetEpoch());
     auto desc = pool->AllocateDescriptor();
 
     /// generate unique positions
@@ -220,7 +220,6 @@ void thread_work(uint64_t* array, DescriptorPool* pool,
                   .count();
   }
   LOG(INFO) << "finished all jobs" << std::endl;
-  Thread::ClearRegistry(true);
 }
 
 void ArraySanityCheck(uint64_t* array) {
@@ -260,7 +259,7 @@ GTEST_TEST(PMwCASTest, MultiThreadedUpdate) {
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   ::testing::InitGoogleTest(&argc, argv);
-  FLAGS_minloglevel = 1;
+  FLAGS_alsologtostderr = 1;
 
 #ifdef WIN32
   pmwcas::InitLibrary(

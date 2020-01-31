@@ -370,6 +370,10 @@ EpochManager::MinEpochTable::Entry* EpochManager::MinEpochTable::ReserveEntry(
         // just move on to the next entry.
       }
     }
+    LOG(FATAL)
+        << "Maxium thread number reached, consider increase epoch table size"
+        << ", or recliam unused thread items" << std::endl;
+    /// TODO: (hao) this should be implemented in the future. 
     ReclaimOldEntries();
   }
 }
