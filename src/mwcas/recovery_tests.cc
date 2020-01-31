@@ -57,6 +57,7 @@ void ArraySanityCheck(uint64_t* array) {
     sum += array[i];
   }
   ASSERT_EQ(sum % DESC_CAP, 0);
+  LOG(INFO) << "Recovery sanity check passed!" << std::endl;
 }
 
 struct RootObj {
@@ -68,7 +69,7 @@ void thread_workload(pmwcas::DescriptorPool* descriptor_pool, uint64_t* array,
                      uint64_t time_in_milliseconds) {
   std::random_device rd;
   std::mt19937 eng(rd());
-  std::uniform_int_distribution<> distr(0, ARRAY_SIZE);
+  std::uniform_int_distribution<> distr(0, ARRAY_SIZE - 1);
 
   auto begin = std::chrono::steady_clock::now();
   uint64_t elapsed = 0;
@@ -84,12 +85,14 @@ void thread_workload(pmwcas::DescriptorPool* descriptor_pool, uint64_t* array,
 
     /// randomly select array items to perform MwCAS
     for (const auto& it : positions) {
-      auto item = &array[it];
+      auto item = array + it;
       auto old_val = *item;
-      if (pmwcas::Descriptor::IsCleanPtr(old_val)) {
-        desc->AddEntry(item, old_val, old_val + 1);
+      while (!pmwcas::Descriptor::IsCleanPtr(old_val)) {
+        old_val = __atomic_load_n(item, __ATOMIC_SEQ_CST);
       }
+      desc->AddEntry(item, old_val, old_val + 1);
     }
+
     desc->MwCAS();
 
     auto end = std::chrono::steady_clock::now();
@@ -188,8 +191,9 @@ GTEST_TEST(PMwCASTest, SingleThreadedRecovery) {
       histogram[value] += 1;
     }
   }
-  LOG(INFO) << "=============================\nArray histogram\nvalue\tcount"
-            << std::endl;
+  LOG(INFO) << "=============================\n";
+  LOG(INFO) << "Array histogram\n";
+  LOG(INFO) << "value\tcount\n";
   for (const auto& item : histogram) {
     LOG(INFO) << item.first << "\t" << item.second << std::endl;
   }

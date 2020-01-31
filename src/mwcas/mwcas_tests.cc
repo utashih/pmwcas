@@ -184,7 +184,7 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
 }
 
 static const uint64_t ARRAY_SIZE = 1024;
-static const uint32_t THREAD_COUNT = 7;
+static const uint32_t THREAD_COUNT = 6;
 
 void thread_work(uint64_t* array, DescriptorPool* pool,
                  uint64_t time_in_milliseconds) {
