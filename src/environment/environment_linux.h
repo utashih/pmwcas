@@ -399,69 +399,76 @@ POBJ_LAYOUT_END(allocator)
 /// A wrapper for using PMDK allocator
 class PMDKAllocator : IAllocator {
  public:
-  PMDKAllocator(PMEMobjpool *pop, const char *file_name): pop(pop), file_name(file_name) {}
-  ~PMDKAllocator() {
-    pmemobj_close(pop);
-  }
+  static const constexpr uint32_t kPMDK_PADDING = 48;
 
-  static std::function<Status(IAllocator *&)> Create(const char *pool_name,
-                                                     const char *layout_name,
-                                                     uint64_t pool_size) {
-    return [pool_name, layout_name, pool_size](IAllocator *&allocator) {
-      int n = posix_memalign(reinterpret_cast<void **>(&allocator), kCacheLineSize, sizeof(DefaultAllocator));
+  PMDKAllocator(PMEMobjpool* pop, const char* file_name)
+      : pop(pop), file_name(file_name) {}
+  ~PMDKAllocator() { pmemobj_close(pop); }
+
+  static std::function<Status(IAllocator*&)> Create(const char* pool_name,
+                                                    const char* layout_name,
+                                                    uint64_t pool_size) {
+    return [pool_name, layout_name, pool_size](IAllocator*& allocator) {
+      int n = posix_memalign(reinterpret_cast<void**>(&allocator),
+                             kCacheLineSize, sizeof(DefaultAllocator));
       if (n || !allocator) return Status::Corruption("Out of memory");
 
-      PMEMobjpool *tmp_pool;
+      PMEMobjpool* tmp_pool;
       if (!FileExists(pool_name)) {
-        tmp_pool = pmemobj_create(pool_name, layout_name, pool_size, CREATE_MODE_RW);
+        tmp_pool =
+            pmemobj_create(pool_name, layout_name, pool_size, CREATE_MODE_RW);
         LOG_ASSERT(tmp_pool != nullptr);
       } else {
         tmp_pool = pmemobj_open(pool_name, layout_name);
         LOG_ASSERT(tmp_pool != nullptr);
       }
 
-      new(allocator) PMDKAllocator(tmp_pool, pool_name);
+      new (allocator) PMDKAllocator(tmp_pool, pool_name);
       return Status::OK();
     };
   }
 
-  static bool FileExists(const char *pool_path) {
+  static bool FileExists(const char* pool_path) {
     struct stat buffer;
     return (stat(pool_path, &buffer) == 0);
   }
 
-  static void Destroy(IAllocator *a) {
-    auto* allocator= static_cast<PMDKAllocator*>(a);
+  static void Destroy(IAllocator* a) {
+    auto* allocator = static_cast<PMDKAllocator*>(a);
     allocator->~PMDKAllocator();
     free(allocator);
   }
 
-  void Allocate(void **mem, size_t nSize) override {
+  void Allocate(void** mem, size_t nSize) override {
     TX_BEGIN(pop) {
-      if(*mem != nullptr) {
+      if (*mem != nullptr) {
         pmemobj_tx_add_range_direct(mem, sizeof(uint64_t));
       }
-      *mem = pmemobj_direct(pmemobj_tx_alloc(nSize, TOID_TYPE_NUM(char)));
+      *mem =
+          (char*)pmemobj_direct(pmemobj_tx_alloc(nSize, TOID_TYPE_NUM(char))) +
+          kPMDK_PADDING;
     }
-    TX_ONABORT { std::cout<<"Allocate: TXN Allocation Error, mem cannot be a DRAM address: "<< mem << std::endl; }
+    TX_ONABORT {
+      std::cout
+          << "Allocate: TXN Allocation Error, mem cannot be a DRAM address: "
+          << mem << std::endl;
+    }
     TX_END
   }
 
-  template<typename T>
-  inline T *GetDirect(T *pmem_offset) {
-    return reinterpret_cast<T *>(
-        reinterpret_cast<uint64_t>(pmem_offset) + reinterpret_cast<char *>(GetPool()));
+  template <typename T>
+  inline T* GetDirect(T* pmem_offset) {
+    return reinterpret_cast<T*>(reinterpret_cast<uint64_t>(pmem_offset) +
+                                reinterpret_cast<char*>(GetPool()));
   }
 
-  template<typename T>
-  inline T *GetOffset(T *pmem_direct) {
-    return reinterpret_cast<T *>(
-        reinterpret_cast<char *>(pmem_direct) - reinterpret_cast<char *>(GetPool()));
+  template <typename T>
+  inline T* GetOffset(T* pmem_direct) {
+    return reinterpret_cast<T*>(reinterpret_cast<char*>(pmem_direct) -
+                                reinterpret_cast<char*>(GetPool()));
   }
 
-  void AllocateDirect(void **mem, size_t nSize) {
-    Allocate(mem, nSize); 
-  }
+  void AllocateDirect(void** mem, size_t nSize) { Allocate(mem, nSize); }
 
   void* GetRoot(size_t nSize) {
     return pmemobj_direct(pmemobj_root(pop, nSize));
