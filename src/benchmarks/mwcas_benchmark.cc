@@ -29,18 +29,10 @@ DEFINE_uint64(metrics_dump_interval, 0, "if greater than 0, the benchmark "
               "driver dumps metrics at this fixed interval (in seconds)");
 DEFINE_int32(affinity, 1, "affinity to use in scheduling threads");
 DEFINE_uint64(descriptor_pool_size, 262144, "number of total descriptors");
-DEFINE_string(shm_segment, "mwcas", "name of the shared memory segment for"
-    " descriptors and data (for persistent MwCAS only)");
 DEFINE_int32(enable_stats, 1, "whether to enable stats on MwCAS internal"
     " operations");
-#ifdef PMEM
-DEFINE_uint64(write_delay_ns, 0, "NVRAM write delay (ns)");
-DEFINE_bool(emulate_write_bw, false, "Emulate write bandwidth");
-DEFINE_bool(clflush, false, "Use CLFLUSH, instead of spinning delays."
-  "write_dealy_ns and emulate_write_bw will be ignored.");
 #ifdef PMDK
 DEFINE_string(pmdk_pool, "/mnt/pmem0/mwcas_benchmark_pool", "path to pmdk pool");
-#endif
 #endif
 
 namespace pmwcas {
@@ -50,26 +42,14 @@ const size_t kMaxNumThreads = 64;
 
 /// Dumps args in a format that can be extracted by an experiment script
 void DumpArgs() {
-  std::cout << "> Args shm_segment " << FLAGS_shm_segment.c_str() << std::endl;
   std::cout << "> Args threads " << FLAGS_threads << std::endl;
   std::cout << "> Args word_count " << FLAGS_word_count << std::endl;
   std::cout << "> Args array_size " << FLAGS_array_size << std::endl;
   std::cout << "> Args affinity " << FLAGS_affinity << std::endl;
   std::cout << "> Args desrciptor_pool_size " <<
       FLAGS_descriptor_pool_size << std::endl;
-
-#ifdef PMEM
-  if(FLAGS_clflush) {
-    printf("> Args using clflush\n");
-  } else {
-    std::cout << "> Args write_delay_ns " << FLAGS_write_delay_ns << std::endl;
-    std::cout << "> Args emulate_write_bw " <<
-        FLAGS_emulate_write_bw << std::endl;
-  }
-
-  #ifdef PMDK
-   std::cout << "> Args pmdk_pool " << FLAGS_pmdk_pool << std::endl;
-  #endif
+#ifdef PMDK
+  std::cout << "> Args pmdk_pool " << FLAGS_pmdk_pool << std::endl;
 #endif
 }
 

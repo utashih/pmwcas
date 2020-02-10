@@ -43,14 +43,8 @@ DEFINE_int32(affinity, 1, "affinity to use in scheduling threads");
 DEFINE_uint64(threads, 2, "number of threads to use for multi-threaded tests");
 DEFINE_uint64(seconds, 10, "default time to run a benchmark");
 DEFINE_uint64(mwcas_desc_pool_size, 10000000, "number of total descriptors");
-#ifdef PMEM
-DEFINE_uint64(write_delay_ns, 0, "NVRAM write delay (ns)");
-DEFINE_bool(emulate_write_bw, false, "Emulate write bandwidth");
-DEFINE_bool(clflush, false, "Use CLFLUSH, instead of spinning delays."
-  "write_dealy_ns and emulate_write_bw will be ignored.");
 #ifdef PMDK
 DEFINE_string(pmdk_pool, "/mnt/pmem0/doubly_linked_list_benchmark_pool", "path to pmdk pool");
-#endif
 #endif
 
 //DEFINE_uint64(payload_size, 8, "payload size of each node");
@@ -73,19 +67,9 @@ void DumpArgs() {
   std::cout << "> Args read_heavy " << FLAGS_read_heavy << std::endl;
   std::cout << "> Args mwcas_desc_pool_size " << FLAGS_mwcas_desc_pool_size
       << std::endl;
-#ifdef PMEM
-  if(FLAGS_clflush) {
-    printf("> Args using clflush\n");
-  } else {
-    std::cout << "> Args write_delay_ns " << FLAGS_write_delay_ns << std::endl;
-    std::cout << "> Args emulate_write_bw " << FLAGS_emulate_write_bw
-        << std::endl;
-  }
-
 #ifdef PMDK
    std::cout<<"> Args pmdk_pool "<<FLAGS_pmdk_pool<<std::endl;
   #endif
-#endif
 
   if(FLAGS_insert_pct + FLAGS_delete_pct + FLAGS_search_pct != 100) {
     LOG(FATAL) << "wrong operation mix";
@@ -139,39 +123,22 @@ struct DListBench : public Benchmark {
   uint32_t initial_local_insert;
 
   void Setup(size_t thread_count) {
+
     stats.Initialize();
 
-    if(FLAGS_sync == "cas") {
-      dll = new CASDList;
-    } else if(FLAGS_sync == "pcas") {
-#ifdef PMEM
-      if(FLAGS_clflush) {
-        NVRAM::InitializeClflush();
-      } else {
-        NVRAM::InitializeSpin(FLAGS_write_delay_ns, FLAGS_emulate_write_bw);
-      }
+    if (FLAGS_sync == "cas") {
       dll = new CASDList();
-#else
-      LOG(FATAL) << "PMEM undefined";
-#endif
-    } else if(FLAGS_sync == "mwcas") {
-      DescriptorPool* pool = new DescriptorPool(
-        FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+    } else if (FLAGS_sync == "pcas") {
+      dll = new CASDList();
+    } else if (FLAGS_sync == "mwcas") {
+      DescriptorPool* pool =
+          new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
       dll = new MwCASDList(pool);
-    } else if(FLAGS_sync == "pmwcas") {
-#ifdef PMEM
+    } else if (FLAGS_sync == "pmwcas") {
       Descriptor* pool_va = nullptr;
-      if(FLAGS_clflush) {
-        NVRAM::InitializeClflush();
-      } else {
-        NVRAM::InitializeSpin(FLAGS_write_delay_ns, FLAGS_emulate_write_bw);
-      }
-      DescriptorPool* pool = new DescriptorPool(
-        FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+      DescriptorPool* pool =
+          new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
       dll = new MwCASDList(pool);
-#else
-      LOG(FATAL) << "PMEM undefined";
-#endif
     } else {
       LOG(FATAL) << "wrong sync method";
     }
@@ -231,14 +198,9 @@ struct DListBench : public Benchmark {
 
     const uint64_t kPreallocNodes = 600000000 / FLAGS_threads;
 
-#ifdef WIN32
-    DListNode* nodes = (DListNode*)_aligned_malloc(
-      (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes, kCacheLineSize);
-#else
     DListNode* nodes = nullptr;
     int n = posix_memalign((void**)&nodes, kCacheLineSize,
         (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes);
-#endif
     RAW_CHECK(nodes, "out of memory");
 
     uint64_t next_node = 0;
@@ -455,12 +417,15 @@ int main(int argc, char* argv[]) {
   FLAGS_logtostderr = 1;
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
 #ifdef WIN32
-  pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create,
-                           pmwcas::DefaultAllocator::Destroy,
-                           pmwcas::WindowsEnvironment::Create,
-                           pmwcas::WindowsEnvironment::Destroy);
-#else
+  static_assert(false, "This benchmark only works on Linux");
+#endif
+
+#ifndef PMEM
+    static_assert(false, "PMEM is required for benchmark");
+#endif
+
 #ifdef PMDK
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(FLAGS_pmdk_pool.c_str(),
                                                     "doubly_linked_bench_layout",
@@ -474,7 +439,6 @@ int main(int argc, char* argv[]) {
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
 #endif // PMDK
-#endif
   pmwcas::DumpArgs();
   pmwcas::DListBench test{};
   test.Run(FLAGS_threads, FLAGS_seconds,
