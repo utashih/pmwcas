@@ -111,20 +111,22 @@ struct DllStats {
 
 struct PMDKRootObj {
   DescriptorPool* desc_pool_{nullptr};
+  DListNode* thread_node_pool[kMaxNumThreads];
 };
 
 struct DListBench : public Benchmark {
   DListBench()
-    : Benchmark{}
-    , cumulative_mwcas_stats {}
-    , cumulative_dll_stats {} {
-  }
+      : Benchmark{}, cumulative_mwcas_stats{}, cumulative_dll_stats{} {}
 
   IDList* dll;
   MwCASMetrics cumulative_mwcas_stats;
   DllStats cumulative_dll_stats;
   CoreLocal<DllStats *> stats;
   uint32_t initial_local_insert;
+
+#ifdef PMDK
+  PMDKRootObj* root_obj_{nullptr};
+#endif
 
   void Setup(size_t thread_count) {
 
@@ -141,13 +143,13 @@ struct DListBench : public Benchmark {
     } else if (FLAGS_sync == "pmwcas") {
 #ifdef PMDK
       auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
-      auto root_obj = reinterpret_cast<PMDKRootObj*>(
+      root_obj_ = reinterpret_cast<PMDKRootObj*>(
           allocator->GetRoot(sizeof(PMDKRootObj)));
 
-      Allocator::Get()->Allocate((void**)&root_obj->desc_pool_,
+      Allocator::Get()->Allocate((void**)&root_obj_->desc_pool_,
                                  sizeof(DescriptorPool));
 
-      auto pool = root_obj->desc_pool_;
+      auto pool = root_obj_->desc_pool_;
       new (pool) DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
 #else
       DescriptorPool* pool =
@@ -211,10 +213,16 @@ struct DListBench : public Benchmark {
 
     const uint64_t kEpochThreshold = 1000;
 
-    const uint64_t kPreallocNodes = 600000000 / FLAGS_threads;
+    const uint64_t kPreallocNodes = 60000000 / FLAGS_threads;
 
+#ifdef PMDK 
+    DListNode& nodes = root_obj_->thread_node_pool[thread_index];
+#else
     DListNode* nodes = nullptr;
-    int n = posix_memalign((void**)&nodes, kCacheLineSize,
+#endif
+
+    Allocator::Get()->Allocate(
+        (void**)&nodes,
         (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes);
     RAW_CHECK(nodes, "out of memory");
 
@@ -438,7 +446,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifndef PMEM
-    static_assert(false, "PMEM is required for benchmark");
+  static_assert(false, "PMEM is required for benchmark");
 #endif
 
 #ifdef PMDK
