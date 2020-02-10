@@ -42,7 +42,7 @@ DEFINE_string(sync, "cas", "syncronization method: cas, pcas, mwcas, or pmwcas")
 DEFINE_int32(affinity, 1, "affinity to use in scheduling threads");
 DEFINE_uint64(threads, 2, "number of threads to use for multi-threaded tests");
 DEFINE_uint64(seconds, 10, "default time to run a benchmark");
-DEFINE_uint64(mwcas_desc_pool_size, 10000000, "number of total descriptors");
+DEFINE_uint64(mwcas_desc_pool_size, 100000, "number of total descriptors");
 #ifdef PMDK
 DEFINE_string(pmdk_pool, "/mnt/pmem0/doubly_linked_list_benchmark_pool", "path to pmdk pool");
 #endif
@@ -66,10 +66,10 @@ void DumpArgs() {
   std::cout << "> Args affinity " << FLAGS_affinity << std::endl;
   std::cout << "> Args read_heavy " << FLAGS_read_heavy << std::endl;
   std::cout << "> Args mwcas_desc_pool_size " << FLAGS_mwcas_desc_pool_size
-      << std::endl;
+            << std::endl;
 #ifdef PMDK
-   std::cout<<"> Args pmdk_pool "<<FLAGS_pmdk_pool<<std::endl;
-  #endif
+  std::cout << "> Args pmdk_pool " << FLAGS_pmdk_pool << std::endl;
+#endif
 
   if(FLAGS_insert_pct + FLAGS_delete_pct + FLAGS_search_pct != 100) {
     LOG(FATAL) << "wrong operation mix";
@@ -109,6 +109,10 @@ struct DllStats {
   }
 };
 
+struct PMDKRootObj {
+  DescriptorPool* desc_pool_{nullptr};
+};
+
 struct DListBench : public Benchmark {
   DListBench()
     : Benchmark{}
@@ -135,9 +139,20 @@ struct DListBench : public Benchmark {
           new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
       dll = new MwCASDList(pool);
     } else if (FLAGS_sync == "pmwcas") {
-      Descriptor* pool_va = nullptr;
+#ifdef PMDK
+      auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
+      auto root_obj = reinterpret_cast<PMDKRootObj*>(
+          allocator->GetRoot(sizeof(PMDKRootObj)));
+
+      Allocator::Get()->Allocate((void**)&root_obj->desc_pool_,
+                                 sizeof(DescriptorPool));
+
+      auto pool = root_obj->desc_pool_;
+      new (pool) DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+#else
       DescriptorPool* pool =
           new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+#endif
       dll = new MwCASDList(pool);
     } else {
       LOG(FATAL) << "wrong sync method";
@@ -439,6 +454,7 @@ int main(int argc, char* argv[]) {
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
 #endif // PMDK
+
   pmwcas::DumpArgs();
   pmwcas::DListBench test{};
   test.Run(FLAGS_threads, FLAGS_seconds,
