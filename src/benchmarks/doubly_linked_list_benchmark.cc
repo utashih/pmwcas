@@ -38,13 +38,13 @@ DEFINE_int32(read_heavy, 0, "whether to run the read-heavy experiment");
 DEFINE_uint64(read_heavy_modify_range, 0,
   "maximum how far away to randomly choose a location for insert/delete");
 DEFINE_int32(initial_size, 0, "initial number of nodes in the list");
-DEFINE_string(sync, "cas", "syncronization method: cas, pcas, mwcas, or pmwcas");
+DEFINE_string(sync, "pcas", "syncronization method: cas, pcas, mwcas, or pmwcas");
 DEFINE_int32(affinity, 1, "affinity to use in scheduling threads");
 DEFINE_uint64(threads, 2, "number of threads to use for multi-threaded tests");
 DEFINE_uint64(seconds, 10, "default time to run a benchmark");
 DEFINE_uint64(mwcas_desc_pool_size, 100000, "number of total descriptors");
 #ifdef PMDK
-DEFINE_string(pmdk_pool, "/mnt/pmem0/doubly_linked_list_benchmark_pool", "path to pmdk pool");
+DEFINE_string(pmdk_pool, "doubly_linked_list_benchmark_pool", "path to pmdk pool");
 #endif
 
 //DEFINE_uint64(payload_size, 8, "payload size of each node");
@@ -132,15 +132,6 @@ struct DListBench : public Benchmark {
 
     stats.Initialize();
 
-    if (FLAGS_sync == "cas") {
-      dll = new CASDList();
-    } else if (FLAGS_sync == "pcas") {
-      dll = new CASDList();
-    } else if (FLAGS_sync == "mwcas") {
-      DescriptorPool* pool =
-          new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
-      dll = new MwCASDList(pool);
-    } else if (FLAGS_sync == "pmwcas") {
 #ifdef PMDK
       auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
       root_obj_ = reinterpret_cast<PMDKRootObj*>(
@@ -148,50 +139,62 @@ struct DListBench : public Benchmark {
 
       Allocator::Get()->Allocate((void**)&root_obj_->desc_pool_,
                                  sizeof(DescriptorPool));
-
-      auto pool = root_obj_->desc_pool_;
-      new (pool) DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
-#else
-      DescriptorPool* pool =
-          new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+      new (root_obj_->desc_pool_)
+          DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
 #endif
-      dll = new MwCASDList(pool);
-    } else {
-      LOG(FATAL) << "wrong sync method";
-    }
 
-    // Populate the list on behalf of each thread
-    uint64_t thread_index = 0;
-    uint64_t local_insert = 0;
-    if(dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-      MwCASMetrics::ThreadInitialize();
-    }
-    int32_t inserted = 0;
-    for(int32_t i = 0; i < FLAGS_initial_size; ++i) {
-      if(dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-        ((MwCASDList*)dll)->GetEpoch()->Protect();
+      if (FLAGS_sync == "cas") {
+        dll = new CASDList();
+      } else if (FLAGS_sync == "pcas") {
+        dll = new CASDList();
+      } else if (FLAGS_sync == "mwcas") {
+        DescriptorPool* pool =
+            new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+        dll = new MwCASDList(pool);
+      } else if (FLAGS_sync == "pmwcas") {
+#ifdef PMDK
+        DescriptorPool* pool =
+            new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
+#else
+        auto pool = root_obj_->desc_pool_;
+#endif
+        dll = new MwCASDList(pool);
+      } else {
+        LOG(FATAL) << "wrong sync method";
       }
-      uint64_t payload_base = thread_index << 32;
-      auto* node = IDList::NewNode(nullptr, nullptr, sizeof(uint64_t));
-      uint64_t val = local_insert | payload_base;
-      memcpy(node->GetPayload(), (char *)&val, sizeof(uint64_t));
-      local_insert += ++thread_index % FLAGS_threads == 0 ? 1 : 0;
-      thread_index %= FLAGS_threads;
-      auto s = dll->InsertBefore(dll->GetTail(), node, false);
-      RAW_CHECK(s.ok(), "loading failed");
-      inserted++;
-      if(inserted % 10000 == 0) {
-        LOG(INFO) << "Inserted " << inserted;
+
+      // Populate the list on behalf of each thread
+      uint64_t thread_index = 0;
+      uint64_t local_insert = 0;
+      if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+        MwCASMetrics::ThreadInitialize();
       }
-      if(dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-        ((MwCASDList*)dll)->GetEpoch()->Unprotect();
+      int32_t inserted = 0;
+      for (int32_t i = 0; i < FLAGS_initial_size; ++i) {
+        if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+          ((MwCASDList*)dll)->GetEpoch()->Protect();
+        }
+        uint64_t payload_base = thread_index << 32;
+        auto* node = IDList::NewNode(nullptr, nullptr, sizeof(uint64_t));
+        uint64_t val = local_insert | payload_base;
+        memcpy(node->GetPayload(), (char*)&val, sizeof(uint64_t));
+        local_insert += ++thread_index % FLAGS_threads == 0 ? 1 : 0;
+        thread_index %= FLAGS_threads;
+        auto s = dll->InsertBefore(dll->GetTail(), node, false);
+        RAW_CHECK(s.ok(), "loading failed");
+        inserted++;
+        if (inserted % 10000 == 0) {
+          LOG(INFO) << "Inserted " << inserted;
+        }
+        if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+          ((MwCASDList*)dll)->GetEpoch()->Unprotect();
+        }
       }
-    }
-    initial_local_insert = local_insert;
-    if(dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-      MwCASMetrics::Uninitialize();
-      MwCASMetrics::Initialize();
-    }
+      initial_local_insert = local_insert;
+      if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+        MwCASMetrics::Uninitialize();
+        MwCASMetrics::Initialize();
+      }
   }
 
   void Main(size_t thread_index) {
@@ -213,17 +216,20 @@ struct DListBench : public Benchmark {
 
     const uint64_t kEpochThreshold = 1000;
 
-    const uint64_t kPreallocNodes = 60000000 / FLAGS_threads;
+    const uint64_t kPreallocNodes = 9000000;
 
-#ifdef PMDK 
-    DListNode& nodes = root_obj_->thread_node_pool[thread_index];
+#ifdef PMDK
+    Allocator::Get()->Allocate(
+        (void**)&(root_obj_->thread_node_pool[thread_index]),
+        (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes);
+    DListNode* nodes = root_obj_->thread_node_pool[thread_index];
 #else
     DListNode* nodes = nullptr;
-#endif
-
     Allocator::Get()->Allocate(
         (void**)&nodes,
         (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes);
+#endif
+
     RAW_CHECK(nodes, "out of memory");
 
     uint64_t next_node = 0;
@@ -452,7 +458,7 @@ int main(int argc, char* argv[]) {
 #ifdef PMDK
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(FLAGS_pmdk_pool.c_str(),
                                                     "doubly_linked_bench_layout",
-                                                    static_cast<uint64_t>(1024) * 1024 * 1204 * 1),
+                                                    static_cast<uint64_t>(1024) * 1024 * 1204 * 4),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
