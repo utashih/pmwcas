@@ -44,7 +44,7 @@ DEFINE_uint64(threads, 2, "number of threads to use for multi-threaded tests");
 DEFINE_uint64(seconds, 10, "default time to run a benchmark");
 DEFINE_uint64(mwcas_desc_pool_size, 100000, "number of total descriptors");
 #ifdef PMDK
-DEFINE_string(pmdk_pool, "doubly_linked_list_benchmark_pool", "path to pmdk pool");
+DEFINE_string(pmdk_pool, "/mnt/pmem0/doubly_linked_list_benchmark_pool", "path to pmdk pool");
 #endif
 
 //DEFINE_uint64(payload_size, 8, "payload size of each node");
@@ -153,10 +153,10 @@ struct DListBench : public Benchmark {
         dll = new MwCASDList(pool);
       } else if (FLAGS_sync == "pmwcas") {
 #ifdef PMDK
+        auto pool = root_obj_->desc_pool_;
+#else
         DescriptorPool* pool =
             new DescriptorPool(FLAGS_mwcas_desc_pool_size, FLAGS_threads);
-#else
-        auto pool = root_obj_->desc_pool_;
 #endif
         dll = new MwCASDList(pool);
       } else {
@@ -177,7 +177,8 @@ struct DListBench : public Benchmark {
         uint64_t payload_base = thread_index << 32;
         auto* node = IDList::NewNode(nullptr, nullptr, sizeof(uint64_t));
         uint64_t val = local_insert | payload_base;
-        memcpy(node->GetPayload(), (char*)&val, sizeof(uint64_t));
+
+        *(uint64_t*)node->GetPayload() = val;
         local_insert += ++thread_index % FLAGS_threads == 0 ? 1 : 0;
         thread_index %= FLAGS_threads;
         auto s = dll->InsertBefore(dll->GetTail(), node, false);
@@ -221,13 +222,13 @@ struct DListBench : public Benchmark {
 #ifdef PMDK
     Allocator::Get()->Allocate(
         (void**)&(root_obj_->thread_node_pool[thread_index]),
-        (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes);
+        sizeof(DListNode) * kPreallocNodes);
     DListNode* nodes = root_obj_->thread_node_pool[thread_index];
 #else
     DListNode* nodes = nullptr;
     Allocator::Get()->Allocate(
         (void**)&nodes,
-        (sizeof(DListNode) + sizeof(uint64_t)) * kPreallocNodes);
+        sizeof(DListNode) * kPreallocNodes);
 #endif
 
     RAW_CHECK(nodes, "out of memory");
@@ -270,8 +271,8 @@ struct DListBench : public Benchmark {
               payload_base;
           auto* new_node = &nodes[next_node++];
           RAW_CHECK(next_node < kPreallocNodes, "No more nodes");
-          new(new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
-          memcpy(new_node->GetPayload(), (char *)&val, sizeof(uint64_t));
+          new (new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
+          *(uint64_t*)new_node->GetPayload() = val;
           Status s;
           if (rng.Generate(2) == 0) {
             s = dll->InsertAfter(node, new_node, true);
@@ -336,8 +337,8 @@ struct DListBench : public Benchmark {
             payload_base;
           auto* new_node = &nodes[next_node++];
           RAW_CHECK(next_node < kPreallocNodes, "no more nodes");
-          new(new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
-          memcpy(new_node->GetPayload(), (char *)&val, sizeof(uint64_t));
+          new (new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
+          *(uint64_t*)new_node->GetPayload() = val;
           Status s;
           if (rng.Generate(2) == 0) {
             s = dll->InsertAfter(node, new_node, true);

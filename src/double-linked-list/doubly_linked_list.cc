@@ -357,11 +357,6 @@ Status MwCASDList::InsertBefore(DListNode* next, DListNode* node,
   }
   EpochGuard guard(GetEpoch(), !already_protected);
 
-  // Persist the payload
-#ifdef PMEM
-  NVRAM::Flush(node->payload_size, node->GetPayload());
-#endif
-
   while (true) {
     RAW_CHECK(((uint64_t)next & kNodeDeleted) == 0, "invalid prev pointer");
     auto* prev = ResolveNodePointer(&next->prev, true);
@@ -376,24 +371,27 @@ Status MwCASDList::InsertBefore(DListNode* next, DListNode* node,
     if ((uint64_t)prev_next & kNodeDeleted) {
       continue;
     }
+    __builtin_prefetch(next->prev, 1);
+    __builtin_prefetch(prev->next, 1);
 
     node->next = next;
     node->prev = prev;
+
 #ifdef PMEM
-    // Persist node
-    NVRAM::Flush(sizeof(node->prev) + sizeof(node->next), &node->prev);
+    NVRAM::Flush(sizeof(DListNode), node);
 #endif
-    RAW_CHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)prev),
-        "prev is not normal value");
-    RAW_CHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)next),
-        "next is not normal value");
+
+    DCHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)prev))
+        << "prev is not normal value\n";
+    DCHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)next))
+        << "next is not normal value\n";
 
     auto* desc = descriptor_pool_->AllocateDescriptor();
     RAW_CHECK(desc, "null MwCAS descriptor");
     desc->AddEntry(
-        (uint64_t*)&node->prev->next, (uint64_t)node->next, (uint64_t)node);
+        (uint64_t*)&prev->next, (uint64_t)next, (uint64_t)node);
     desc->AddEntry(
-        (uint64_t*)&next->prev, (uint64_t)node->prev, (uint64_t)node);
+        (uint64_t*)&next->prev, (uint64_t)prev, (uint64_t)node);
     if(desc->MwCAS()) {
       return Status::OK();
     }
@@ -409,11 +407,6 @@ Status MwCASDList::InsertAfter(DListNode* prev, DListNode* node,
   }
   EpochGuard guard(GetEpoch(), !already_protected);
 
-  // Persist the payload
-#ifdef PMEM
-  NVRAM::Flush(node->payload_size, node->GetPayload());
-#endif
-
   while (true) {
     RAW_CHECK(((uint64_t)prev & kNodeDeleted) == 0, "invalid prev pointer");
     auto* next = ResolveNodePointer(&prev->next, true);
@@ -426,25 +419,27 @@ Status MwCASDList::InsertAfter(DListNode* prev, DListNode* node,
       continue;
     }
 
+    __builtin_prefetch(next->prev, 1);
+    __builtin_prefetch(prev->next, 1);
+
     RAW_CHECK(((uint64_t)next & kNodeDeleted) == 0, "deleted prev node");
-    RAW_CHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)prev),
-        "next is not normal value");
-    RAW_CHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)next),
-        "next is not normal value");
+    DCHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)prev))
+        << "next is not normal value\n";
+    DCHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)next))
+        << "next is not normal value\n";
 
     node->prev = prev;
     node->next = next;
 #ifdef PMEM
     // Persist node
-    NVRAM::Flush(sizeof(node->prev) + sizeof(node->next), &node->prev);
+    NVRAM::Flush(sizeof(DListNode), node);
 #endif
+
     auto* desc = descriptor_pool_->AllocateDescriptor();
     RAW_CHECK(desc, "null descriptor pointer");
 
-    desc->AddEntry((uint64_t*)&prev->next, (uint64_t)node->next,
-        (uint64_t)node);
-    desc->AddEntry((uint64_t*)&node->next->prev, (uint64_t)node->prev,
-        (uint64_t)node);
+    desc->AddEntry((uint64_t*)&prev->next, (uint64_t)next, (uint64_t)node);
+    desc->AddEntry((uint64_t*)&next->prev, (uint64_t)prev, (uint64_t)node);
 
     if(desc->MwCAS()) {
       return Status::OK();

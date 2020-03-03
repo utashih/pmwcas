@@ -10,4 +10,7 @@ set(MWCAS_SOURCES
 set_property(GLOBAL APPEND PROPERTY PMWCAS_SRC ${MWCAS_SOURCES})
 
 ADD_PMWCAS_TEST(mwcas_tests)
-ADD_PMWCAS_TEST(recovery_tests)
+
+if(defined PMEM)
+  ADD_PMWCAS_TEST(recovery_tests)
+endif()

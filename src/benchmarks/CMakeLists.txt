@@ -4,4 +4,7 @@ set(BENCHMARK_HEADERS
 
 ADD_PMWCAS_BENCHMARK(mwcas_benchmark)
 ADD_PMWCAS_BENCHMARK(mwcas_shm_server)
-ADD_PMWCAS_BENCHMARK(doubly_linked_list_benchmark)
+
+if(defined PMEM)
+  ADD_PMWCAS_BENCHMARK(doubly_linked_list_benchmark)
+endif()

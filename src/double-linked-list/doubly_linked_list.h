@@ -18,7 +18,8 @@ struct DListNode {
   DListNode* prev;  // 8-byte
   DListNode* next;  // 8-byte
   uint32_t payload_size;  // 4-byte
-  char padding[kCacheLineSize - sizeof(DListNode*) * 2 - sizeof(uint32_t)];
+  char __padding[12];
+  char payload[32];
 
   DListNode(DListNode* p, DListNode* n, uint32_t s)
       : prev(p),
@@ -31,17 +32,18 @@ struct DListNode {
   }
 
   inline char* GetPayload() {
-    return (char *)this + sizeof(*this);
+    return payload;
   }
 };
+
+static_assert(sizeof(DListNode) % kCacheLineSize == 0);
 
 class IDList {
  public:
   static DListNode* NewNode(DListNode* prev, DListNode* next,
       uint32_t payload_size) {
-    DListNode *node = nullptr;
-    Allocator::Get()->Allocate((void **) &node,
-                               sizeof(DListNode) + payload_size);
+    DListNode* node = nullptr;
+    Allocator::Get()->Allocate((void**)&node, sizeof(DListNode));
     new (node) DListNode(prev, next, payload_size);
     return node;
   }

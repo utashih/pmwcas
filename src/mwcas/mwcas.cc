@@ -484,7 +484,7 @@ bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
       continue;
     }
 retry_entry:
-    auto rval = CondCAS(i);
+    auto rval = CondCAS(i, words_);
 
     // Ok if a) we succeeded to swap in a pointer to this descriptor or b) some
     // other thread has already done so.
