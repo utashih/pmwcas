@@ -253,7 +253,7 @@ DescriptorPool::~DescriptorPool() {
   MwCASMetrics::Uninitialize();
 }
 
-Descriptor* DescriptorPool::AllocateDescriptor(Descriptor::FreeCallback fc) {
+DescriptorGuard DescriptorPool::AllocateDescriptor(Descriptor::FreeCallback fc) {
   thread_local DescriptorPartition* tls_part = nullptr;
   if(!tls_part) {
     // Sometimes e.g., benchmark data loading will create new threads when
@@ -286,7 +286,7 @@ Descriptor* DescriptorPool::AllocateDescriptor(Descriptor::FreeCallback fc) {
   RAW_CHECK(desc, "null descriptor pointer");
   desc->free_callback_ = fc ? fc : Descriptor::DefaultFreeCallback;
 
-  return desc;
+  return DescriptorGuard(desc);
 }
 
 Descriptor::Descriptor(DescriptorPartition* partition)

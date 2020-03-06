@@ -416,7 +416,7 @@ class DescriptorGuard {
   /// Abort the MwCAS operation, can be used only before the operation starts.
   Status Abort() {
     finished_ = true;
-    desc_->Abort();
+    return desc_->Abort();
   }
 
   /// Function for initializing a newly allocated Descriptor.
@@ -516,11 +516,11 @@ private:
   }
 
   // Get a free descriptor from the pool.
-  Descriptor* AllocateDescriptor(Descriptor::FreeCallback fc);
+  DescriptorGuard AllocateDescriptor(Descriptor::FreeCallback fc);
   
   // Allocate a free descriptor from the pool using default allocate and
   // free callbacks.
-  inline Descriptor* AllocateDescriptor() {
+  inline DescriptorGuard AllocateDescriptor() {
     return AllocateDescriptor(nullptr);
   }
 };
