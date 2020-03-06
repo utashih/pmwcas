@@ -90,10 +90,10 @@ void thread_workload(pmwcas::DescriptorPool* descriptor_pool, uint64_t* array,
       while (!pmwcas::Descriptor::IsCleanPtr(old_val)) {
         old_val = __atomic_load_n(item, __ATOMIC_SEQ_CST);
       }
-      desc->AddEntry(item, old_val, old_val + 1);
+      desc.AddEntry(item, old_val, old_val + 1);
     }
 
-    desc->MwCAS();
+    desc.MwCAS();
 
     auto end = std::chrono::steady_clock::now();
     elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)

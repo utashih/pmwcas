@@ -170,14 +170,14 @@ struct MwCas : public Benchmark {
             (value[i] % (4 * FLAGS_array_size)) / 4 < FLAGS_array_size);
       }
 
-      Descriptor* descriptor = descriptor_pool_->AllocateDescriptor();
-      CHECK_NOTNULL(descriptor);
+      auto descriptor = descriptor_pool_->AllocateDescriptor();
+      CHECK_NOTNULL(descriptor.GetRaw());
       for(uint64_t i = 0; i < FLAGS_word_count; i++) {
-        descriptor->AddEntry((uint64_t*)(address[i]), uint64_t(value[i]),
+        descriptor.AddEntry((uint64_t*)(address[i]), uint64_t(value[i]),
             uint64_t(value[FLAGS_word_count - 1 - i] + 4 * FLAGS_array_size));
       }
       bool status = false;
-      status = descriptor->MwCAS();
+      status = descriptor.MwCAS();
       n_success += (status == true);
     }
     descriptor_pool_->GetEpoch()->Unprotect();

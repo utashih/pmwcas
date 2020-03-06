@@ -386,13 +386,13 @@ Status MwCASDList::InsertBefore(DListNode* next, DListNode* node,
     DCHECK(MwcTargetField<uint64_t>::IsCleanPtr((uint64_t)next))
         << "next is not normal value\n";
 
-    auto* desc = descriptor_pool_->AllocateDescriptor();
-    RAW_CHECK(desc, "null MwCAS descriptor");
-    desc->AddEntry(
+    auto desc = descriptor_pool_->AllocateDescriptor();
+    RAW_CHECK(desc.GetRaw(), "null MwCAS descriptor");
+    desc.AddEntry(
         (uint64_t*)&prev->next, (uint64_t)next, (uint64_t)node);
-    desc->AddEntry(
+    desc.AddEntry(
         (uint64_t*)&next->prev, (uint64_t)prev, (uint64_t)node);
-    if(desc->MwCAS()) {
+    if(desc.MwCAS()) {
       return Status::OK();
     }
   }
@@ -435,13 +435,13 @@ Status MwCASDList::InsertAfter(DListNode* prev, DListNode* node,
     NVRAM::Flush(sizeof(DListNode), node);
 #endif
 
-    auto* desc = descriptor_pool_->AllocateDescriptor();
-    RAW_CHECK(desc, "null descriptor pointer");
+    auto desc = descriptor_pool_->AllocateDescriptor();
+    RAW_CHECK(desc.GetRaw(), "null descriptor pointer");
 
-    desc->AddEntry((uint64_t*)&prev->next, (uint64_t)next, (uint64_t)node);
-    desc->AddEntry((uint64_t*)&next->prev, (uint64_t)prev, (uint64_t)node);
+    desc.AddEntry((uint64_t*)&prev->next, (uint64_t)next, (uint64_t)node);
+    desc.AddEntry((uint64_t*)&next->prev, (uint64_t)prev, (uint64_t)node);
 
-    if(desc->MwCAS()) {
+    if(desc.MwCAS()) {
       return Status::OK();
     }
   }
@@ -464,14 +464,14 @@ Status MwCASDList::Delete(DListNode* node, bool already_protected) {
       continue;
     }
 
-    auto* desc = descriptor_pool_->AllocateDescriptor();
-    RAW_CHECK(desc, "null MwCAS descriptor");
+    auto desc = descriptor_pool_->AllocateDescriptor();
+    RAW_CHECK(desc.GetRaw(), "null MwCAS descriptor");
 
-    desc->AddEntry((uint64_t*)&prev->next, (uint64_t)node, (uint64_t)next);
-    desc->AddEntry((uint64_t*)&next->prev, (uint64_t)node, (uint64_t)prev);
-    desc->AddEntry((uint64_t*)&node->next, (uint64_t)next,
+    desc.AddEntry((uint64_t*)&prev->next, (uint64_t)node, (uint64_t)next);
+    desc.AddEntry((uint64_t*)&next->prev, (uint64_t)node, (uint64_t)prev);
+    desc.AddEntry((uint64_t*)&node->next, (uint64_t)next,
         (uint64_t)next | kNodeDeleted);
-    if(desc->MwCAS()) {
+    if(desc.MwCAS()) {
       return Status::OK();
     }
   }

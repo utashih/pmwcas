@@ -60,14 +60,14 @@ GTEST_TEST(PMwCASTest, SingleThreadedUpdateSuccess) {
     values[i] = test_array[idx].GetValueProtected();
   }
 
-  Descriptor* descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
+  auto descriptor = pool->AllocateDescriptor();
+  EXPECT_NE(nullptr, descriptor.GetRaw());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], values[i], 1ull);
+    descriptor.AddEntry((uint64_t*)addresses[i], values[i], 1ull);
   }
 
-  EXPECT_TRUE(descriptor->MwCAS());
+  EXPECT_TRUE(descriptor.MwCAS());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
     EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
@@ -105,14 +105,14 @@ GTEST_TEST(PMwCASTest, SingleThreadedAbort) {
 
   pool.get()->GetEpoch()->Protect();
 
-  Descriptor* descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
+  auto descriptor = pool->AllocateDescriptor();
+  EXPECT_NE(nullptr, descriptor.GetRaw());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
+    descriptor.AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
   }
 
-  EXPECT_TRUE(descriptor->Abort().ok());
+  EXPECT_TRUE(descriptor.Abort().ok());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
     EXPECT_EQ(0ull, *((uint64_t*)addresses[i]));
@@ -153,14 +153,14 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
 
   pool.get()->GetEpoch()->Protect();
 
-  Descriptor* descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
+  auto descriptor = pool->AllocateDescriptor();
+  EXPECT_NE(nullptr, descriptor.GetRaw());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
+    descriptor.AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
   }
 
-  EXPECT_TRUE(descriptor->MwCAS());
+  EXPECT_TRUE(descriptor.MwCAS());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
     EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
@@ -170,14 +170,14 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
 
   pool.get()->GetEpoch()->Protect();
 
-  descriptor = pool->AllocateDescriptor();
-  EXPECT_NE(nullptr, descriptor);
+  auto new_descriptor = pool->AllocateDescriptor();
+  EXPECT_NE(nullptr, descriptor.GetRaw());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor->AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
+    new_descriptor.AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
   }
 
-  EXPECT_FALSE(descriptor->MwCAS());
+  EXPECT_FALSE(new_descriptor.MwCAS());
 
   pool.get()->GetEpoch()->Unprotect();
   Thread::ClearRegistry(true);
@@ -211,15 +211,15 @@ void thread_work(uint64_t* array, DescriptorPool* pool,
       while (!pmwcas::Descriptor::IsCleanPtr(old_val)) {
         old_val = __atomic_load_n(item, __ATOMIC_SEQ_CST);
       }
-      desc->AddEntry(item, old_val, old_val + 1);
+      desc.AddEntry(item, old_val, old_val + 1);
     }
-    desc->MwCAS();
+    desc.MwCAS();
 
     auto end = std::chrono::steady_clock::now();
     elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
                   .count();
   }
-  LOG(INFO) << "finished all jobs" << std::endl;
+  std::cout << "finished all jobs" << std::endl;
 }
 
 void ArraySanityCheck(uint64_t* array) {
