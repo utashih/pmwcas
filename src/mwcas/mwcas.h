@@ -126,6 +126,9 @@ public:
   /// only used for allocation purpose
   static const uint32_t kAllocNullAddress = 0x0;
 
+  /// Value signifying an internal reserved value for a new entry
+  static const uint64_t kNewValueReserved = ~0ull;
+
   /// Returns whether the value given is an MwCAS descriptor or not.
   inline static bool IsMwCASDescriptorPtr(uint64_t value) {
     return value & kMwCASFlag;
@@ -253,8 +256,6 @@ private:
 
   friend class DescriptorPool;
 
-  /// Value signifying an internal reserved value for a new entry
-  static const uint64_t kNewValueReserved = ~0ull;
 
   /// Internal helper function to conduct a double-compare, single-swap
   /// operation on an target field depending on the value of the status_ field
@@ -366,11 +367,72 @@ private:
   WordDescriptor words_[DESC_CAP];
 };
 
+class DescriptorGuard {
+ public:
+  explicit DescriptorGuard(Descriptor* desc) : desc_{desc}, finished_{false} {}
+
+  ~DescriptorGuard() {
+    if (!finished_) {
+      desc_->Abort();
+    }
+  }
+
+  /// Getter, but you should not use it unless you know the consequences
+  Descriptor* GetRaw() { return desc_; }
+
+  /// Retrieves the new value for the given word index in the PMwCAS
+  inline uint64_t GetNewValue(uint32_t index){
+    return desc_->GetNewValue(index);
+  }
+
+  /// Retrieves the pointer to the new value slot for a given word in the PMwCAS
+  inline uint64_t* GetNewValuePtr(uint32_t index){
+    return desc_->GetNewValuePtr(index);
+  }
+
+  /// Adds information about a new word to be modifiec by the MwCAS operator.
+  /// Word descriptors are stored sorted on the word address to prevent
+  /// livelocks. Return value is negative if the descriptor is full.
+  int32_t AddEntry(uint64_t* addr, uint64_t oldval, uint64_t newval,
+                   uint32_t recycle_policy = Descriptor::kRecycleNever) {
+    return desc_->AddEntry(addr, oldval, newval, recycle_policy);
+  }
+
+  /// Reserve a slot in the words array, but don't know what the new value is
+  /// yet. The application should use GetNewValue[Ptr] to fill in later.
+  inline uint32_t ReserveAndAddEntry(
+      uint64_t* addr, uint64_t oldval,
+      uint32_t recycle_policy = Descriptor::kRecycleNever) {
+    return desc_->AddEntry(addr, oldval, Descriptor::kNewValueReserved,
+                           recycle_policy);
+  }
+
+  /// Executes the multi-word compare and swap operation.
+  bool MwCAS() {
+    finished_ = true;
+    return desc_->MwCAS();
+  }
+  
+  /// Abort the MwCAS operation, can be used only before the operation starts.
+  Status Abort() {
+    finished_ = true;
+    desc_->Abort();
+  }
+
+  /// Function for initializing a newly allocated Descriptor.
+  void Initialize() { desc_->Initialize(); }
+
+ private:
+  /// The descriptor behind it
+  Descriptor* desc_;
+
+  bool finished_;
+};
+
 /// A partitioned pool of Descriptors used for fast allocation of descriptors.
 /// The pool of descriptors will be bounded by the number of threads actively
 /// performing an mwcas operation.
-struct alignas(kCacheLineSize)DescriptorPartition {
-
+struct alignas(kCacheLineSize) DescriptorPartition {
   DescriptorPartition() = delete;
   DescriptorPartition(EpochManager* epoch, DescriptorPool* pool);
 
