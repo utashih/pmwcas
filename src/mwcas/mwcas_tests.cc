@@ -170,14 +170,14 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
 
   pool.get()->GetEpoch()->Protect();
 
-  descriptor = pool->AllocateDescriptor();
+  auto new_descriptor = pool->AllocateDescriptor();
   EXPECT_NE(nullptr, descriptor.GetRaw());
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
-    descriptor.AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
+    new_descriptor.AddEntry((uint64_t*)addresses[i], 0ull, 1ull);
   }
 
-  EXPECT_FALSE(descriptor.MwCAS());
+  EXPECT_FALSE(new_descriptor.MwCAS());
 
   pool.get()->GetEpoch()->Unprotect();
   Thread::ClearRegistry(true);
@@ -219,7 +219,7 @@ void thread_work(uint64_t* array, DescriptorPool* pool,
     elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
                   .count();
   }
-  LOG(INFO) << "finished all jobs" << std::endl;
+  std::cout << "finished all jobs" << std::endl;
 }
 
 void ArraySanityCheck(uint64_t* array) {

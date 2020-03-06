@@ -377,6 +377,9 @@ class DescriptorGuard {
     }
   }
 
+  DescriptorGuard(const DescriptorGuard& guard) = delete;
+  DescriptorGuard& operator=(const DescriptorGuard& guard) = delete;
+
   /// Getter, but you should not use it unless you know the consequences
   Descriptor* GetRaw() { return desc_; }
 
