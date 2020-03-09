@@ -399,7 +399,6 @@ POBJ_LAYOUT_END(allocator)
 /// A wrapper for using PMDK allocator
 class PMDKAllocator : IAllocator {
  public:
-  static const constexpr uint32_t kPMDK_PADDING = 48;
 
   PMDKAllocator(PMEMobjpool* pop, const char* file_name)
       : pop(pop), file_name(file_name) {}
@@ -445,8 +444,7 @@ class PMDKAllocator : IAllocator {
         pmemobj_tx_add_range_direct(mem, sizeof(uint64_t));
       }
       *mem =
-          (char*)pmemobj_direct(pmemobj_tx_alloc(nSize, TOID_TYPE_NUM(char))) +
-          kPMDK_PADDING;
+          (char*)pmemobj_direct(pmemobj_tx_alloc(nSize, TOID_TYPE_NUM(char)));
     }
     TX_ONABORT {
       std::cout
