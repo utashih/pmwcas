@@ -14,16 +14,17 @@ stages:
   - job: build_pmwcas
     steps:
       - script: docker build -t pmwcas_$(Build.BuildId) .
+        displayName: 'Build Docker image'
 
 - stage: Test
   jobs:
   - job: test
     steps:
       - script: docker run --name=pmwcas_$(Build.BuildId)_test pmwcas_$(Build.BuildId) 
-        displayName: 'run tests'
+        displayName: 'Run tests'
 
       - script: docker cp pmwcas_$(Build.BuildId)_test:/usr/src/pmwcas/build_tmp/Testing .
-        displayName: 'copy the test results'
+        displayName: 'Copy the test results'
       
       - task: PublishTestResults@2
         inputs:
@@ -36,7 +37,7 @@ stages:
       - script: docker run --name=pmwcas_$(Build.BuildId)_bench --entrypoint 
                "/usr/src/pmwcas/build_tmp/src/benchmarks/mwcas_benchmark" pmwcas_$(Build.BuildId) 
                --threads=4 --pmdk_pool=mwcas_pool
-        displayName: 'run benchmarks'
+        displayName: 'Run benchmarks'
         env:
           PMEM_IS_PMEM_FORCE: 1
 
@@ -55,18 +56,19 @@ stages:
           git push origin gh-pages --force
         env:
           GH_TOKEN: $(GITHUB_TOKEN)
+        displayName: "Publish benchmark result"
   
   - job: clean
     dependsOn: benchmark
     steps:
       - script: docker rm pmwcas_$(Build.BuildId)_test 
-        displayName: 'clean the image'
+        displayName: 'Clean the image'
         condition: always()
 
       - script: docker rm pmwcas_$(Build.BuildId)_bench
-        displayName: 'clean the image'
+        displayName: 'Clean the image'
         condition: always()
 
       - script: docker rmi pmwcas_$(Build.BuildId) --force
-        displayName: 'clean the container'
+        displayName: 'Clean the container'
         condition: always()
