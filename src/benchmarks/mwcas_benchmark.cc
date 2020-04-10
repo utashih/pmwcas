@@ -54,7 +54,7 @@ void DumpArgs() {
 }
 
 struct PMDKRootObj {
-  DescriptorPool *desc_pool_{nullptr};
+  DescriptorPool *desc_pool{nullptr};
   CasPtr* test_array_{nullptr};
 };
 
@@ -76,12 +76,12 @@ struct MwCas : public Benchmark {
 #ifdef PMDK
     auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
     auto root_obj = reinterpret_cast<PMDKRootObj*>(allocator->GetRoot(sizeof(PMDKRootObj)));
-    Allocator::Get()->Allocate((void **)&root_obj->desc_pool_, sizeof(DescriptorPool));
+    Allocator::Get()->Allocate((void **)&root_obj->desc_pool, sizeof(DescriptorPool));
     // Allocate the thread array and initialize to consecutive even numbers
     Allocator::Get()->Allocate((void **)&root_obj->test_array_, FLAGS_array_size * kCacheLineSize);
     // TODO: might have some memory leak here, but for benchmark we don't care (yet).
 
-    descriptor_pool_ = root_obj->desc_pool_;
+    descriptor_pool_ = root_obj->desc_pool;
     test_array_ = root_obj->test_array_;
 #else
     Allocator::Get()->Allocate((void **)&descriptor_pool_, sizeof(DescriptorPool));

@@ -160,10 +160,10 @@ add_definitions(-DAPPS)
 
 # Set the link libraries to for test compilation
 set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
-set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma -fPIC")
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lnuma -fPIC")
 
 # Set the link libraries to for benchmark binary compilation
-set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-fPIC -lpthread -lrt -lnuma")
+set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-fPIC -lpthread -lnuma")
 
 enable_testing()
 
