@@ -115,9 +115,14 @@ struct DllStats {
   }
 };
 
+// This is a structure to workaround the allocation limit:
+// we need to allocate to a known persistent memory address,
+// which is not always easy to do especially in the cases where we don't really
+// care about persistentcy, e.g. benchmark init
 struct PMDKRootObj {
   DescriptorPool* desc_pool{nullptr};
   DListNode* thread_node_pool[kMaxNumThreads];
+  DListNode* _node;
 };
 
 struct DListBench : public Benchmark {
@@ -131,7 +136,7 @@ struct DListBench : public Benchmark {
   uint32_t initial_local_insert;
   RandomNumberGenerator rng{};
   static const uint64_t kEpochThreshold = 1000;
-  const uint64_t kPreallocNodes = 90000000;
+  const uint64_t kPreallocNodes = 9000000;
 
   PMDKRootObj* root_obj{nullptr};
 
@@ -173,7 +178,9 @@ struct DListBench : public Benchmark {
         ((MwCASDList*)dll)->GetEpoch()->Protect();
       }
       uint64_t payload_base = thread_index << 32;
-      auto* node = IDList::NewNode(nullptr, nullptr, sizeof(uint64_t));
+      Allocator::Get()->Allocate((void**)&(root_obj->_node), sizeof(DListNode));
+      auto* node = root_obj->_node;
+
       uint64_t val = local_insert | payload_base;
 
       *(uint64_t*)node->GetPayload() = val;
@@ -203,12 +210,6 @@ struct DListBench : public Benchmark {
     if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
       MwCASMetrics::ThreadInitialize();
     }
-
-    // WARNING: do not change the way these four variables are added
-    // unless you know what you are doing.
-    uint32_t insert_pct = FLAGS_insert_pct;
-    uint32_t delete_pct = insert_pct + FLAGS_delete_pct;
-    uint32_t search_pct = delete_pct + FLAGS_search_pct;
 
     Allocator::Get()->Allocate(
         (void**)&(root_obj->thread_node_pool[thread_index]),
