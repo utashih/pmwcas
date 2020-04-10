@@ -15,39 +15,24 @@ struct DListNode {
 
   // Put prev and next in the same cacheline so that a single NVRAM::Flush is
   // enough.
-  DListNode* prev;  // 8-byte
-  DListNode* next;  // 8-byte
+  DListNode* prev;        // 8-byte
+  DListNode* next;        // 8-byte
   uint32_t payload_size;  // 4-byte
   char __padding[12];
   char payload[32];
 
   DListNode(DListNode* p, DListNode* n, uint32_t s)
-      : prev(p),
-        next(n),
-        payload_size(s) {
-  }
+      : prev(p), next(n), payload_size(s) {}
 
-  DListNode()
-      : DListNode(nullptr, nullptr, 0) {
-  }
+  DListNode() : DListNode(nullptr, nullptr, 0) {}
 
-  inline char* GetPayload() {
-    return payload;
-  }
+  inline char* GetPayload() { return payload; }
 };
 
 static_assert(sizeof(DListNode) % kCacheLineSize == 0);
 
 class IDList {
  public:
-  static DListNode* NewNode(DListNode* prev, DListNode* next,
-      uint32_t payload_size) {
-    DListNode* node = nullptr;
-    Allocator::Get()->Allocate((void**)&node, sizeof(DListNode));
-    new (node) DListNode(prev, next, payload_size);
-    return node;
-  }
-
   static const int kSyncUnknown = 0;
   static const int kSyncMwCAS = 1;
   static const int kSyncCAS = 2;
@@ -55,28 +40,27 @@ class IDList {
   IDList(int sync)
       : head_(nullptr, &tail_, 0),
         tail_(&head_, nullptr, 0),
-        sync_method_(sync) {
-  }
+        sync_method_(sync) {}
 
   ~IDList() {}
 
   /// Insert [node] right before [next]
   virtual Status InsertBefore(DListNode* next, DListNode* node,
-      bool already_protected) = 0;
+                              bool already_protected) = 0;
 
   /// Insert [node] right after [prev]
   virtual Status InsertAfter(DListNode* prev, DListNode* node,
-      bool already_protected) = 0;
+                             bool already_protected) = 0;
 
   /// Delete [node]
   virtual Status Delete(DListNode* node, bool already_protected) = 0;
 
   /// Figure out the node lined up after [node]
   virtual DListNode* GetNext(DListNode* node,
-      bool already_protected = false) = 0;
+                             bool already_protected = false) = 0;
 
   virtual DListNode* GetPrev(DListNode* node,
-      bool already_protected = false) = 0;
+                             bool already_protected = false) = 0;
 
   inline DListNode* GetHead() { return &head_; }
 
@@ -110,13 +94,14 @@ class CASDList : public IDList {
 
   inline void backoff() {
     uint64_t loops = rng.Generate(500);
-    while(loops--) {}
+    while (loops--) {
+    }
   };
 
  public:
 #ifdef PMEM
   /// The same dirty bit as in persistent MwCAS.
-  static const uint64_t kDirtyFlag  = Descriptor::kDirtyFlag;
+  static const uint64_t kDirtyFlag = Descriptor::kDirtyFlag;
 #endif
 
   CASDList() : IDList(kSyncCAS), rng(__rdtsc(), 0, 500) {}
@@ -125,18 +110,18 @@ class CASDList : public IDList {
   /// in case [prev] is being deleted or due to concurrent insertions at the
   /// same spot.
   virtual Status InsertBefore(DListNode* next, DListNode* node,
-      bool already_protected = false) override;
+                              bool already_protected = false) override;
 
   /// Similar to InsertBefore, but try to insert [node] after [prev].
   virtual Status InsertAfter(DListNode* prev, DListNode* node,
-      bool already_protected = false) override;
+                             bool already_protected = false) override;
 
   /// Delete [node]
   virtual Status Delete(DListNode* node,
-      bool already_protected = false) override;
+                        bool already_protected = false) override;
 
   virtual DListNode* GetNext(DListNode* node,
-      bool already_protected = false) override;
+                             bool already_protected = false) override;
 
   virtual DListNode* GetPrev(DListNode* node, bool) override;
 
@@ -152,8 +137,9 @@ class CASDList : public IDList {
       DListNode* node_ptr = *node;
       RAW_CHECK(node != &head_.next, "cannot mark head node's next pointer");
       if (((uint64_t)node_ptr & kNodeDeleted) ||
-          node_ptr == CompareExchange64Ptr(node,
-            (DListNode*)((uint64_t)node_ptr | flags), node_ptr)) {
+          node_ptr ==
+              CompareExchange64Ptr(
+                  node, (DListNode*)((uint64_t)node_ptr | flags), node_ptr)) {
         break;
       }
     }
@@ -163,10 +149,10 @@ class CASDList : public IDList {
     auto* node_ptr = *node;
 
 #ifdef PMEM
-    if(((uint64_t)node_ptr & kDirtyFlag)) {
+    if (((uint64_t)node_ptr & kDirtyFlag)) {
       NVRAM::Flush(sizeof(uint64_t), node);
-      CompareExchange64Ptr(node,
-          (DListNode*)((uint64_t)node_ptr & ~kDirtyFlag), node_ptr);
+      CompareExchange64Ptr(node, (DListNode*)((uint64_t)node_ptr & ~kDirtyFlag),
+                           node_ptr);
     }
     return (DListNode*)((uint64_t)node_ptr & ~kDirtyFlag);
 #else
@@ -207,39 +193,37 @@ class MwCASDList : public IDList {
   static const uint64_t kNodeDeleted = ((uint64_t)1 << 60);
 
  public:
-  MwCASDList(DescriptorPool* pool) :
-    IDList(kSyncMwCAS), descriptor_pool_(pool) {}
+  MwCASDList(DescriptorPool* pool)
+      : IDList(kSyncMwCAS), descriptor_pool_(pool) {}
 
   /// Insert [node] in front of [next] - [node] might end up before another node
   /// in case [prev] is being deleted or due to concurrent insertions at the
   /// same spot.
   virtual Status InsertBefore(DListNode* next, DListNode* node,
-      bool already_protected) override;
+                              bool already_protected) override;
 
   /// Similar to InsertBefore, but try to insert [node] after [prev].
   virtual Status InsertAfter(DListNode* prev, DListNode* node,
-      bool already_protected) override;
+                             bool already_protected) override;
 
   /// Delete [node]
   virtual Status Delete(DListNode* node, bool already_protected) override;
 
   inline virtual DListNode* GetNext(DListNode* node,
-      bool already_protected = false) override {
+                                    bool already_protected = false) override {
     node = (DListNode*)((uint64_t)node & ~kNodeDeleted);
     DListNode* next = ResolveNodePointer(&node->next, already_protected);
     return (DListNode*)((uint64_t)next & ~kNodeDeleted);
   }
 
   inline virtual DListNode* GetPrev(DListNode* node,
-      bool already_protected = false) override {
+                                    bool already_protected = false) override {
     node = (DListNode*)((uint64_t)node & ~kNodeDeleted);
     DListNode* prev = ResolveNodePointer(&node->prev, already_protected);
     return (DListNode*)((uint64_t)prev & ~kNodeDeleted);
   }
 
-  inline EpochManager* GetEpoch() {
-    return descriptor_pool_->GetEpoch();
-  }
+  inline EpochManager* GetEpoch() { return descriptor_pool_->GetEpoch(); }
 
  private:
   /// Return a stable value using MwCAS's GetValue().
@@ -247,13 +231,14 @@ class MwCASDList : public IDList {
   /// where it denotes the node pointer's real location, as
   /// we're casting it to an MwCAS field. E.g., it cannot be
   /// the address of a pointer parameter passed in to the caller.
-  inline DListNode* ResolveNodePointer(DListNode** node, bool already_protected) {
+  inline DListNode* ResolveNodePointer(DListNode** node,
+                                       bool already_protected) {
     int64_t stable_ptr = 0;
-    if(already_protected) {
-      stable_ptr = ((MwcTargetField<uint64_t> *)node)->GetValueProtected();
+    if (already_protected) {
+      stable_ptr = ((MwcTargetField<uint64_t>*)node)->GetValueProtected();
     } else {
-      stable_ptr = ((MwcTargetField<uint64_t> *)node)->GetValue(
-          descriptor_pool_->GetEpoch());
+      stable_ptr = ((MwcTargetField<uint64_t>*)node)
+                       ->GetValue(descriptor_pool_->GetEpoch());
     }
 
     return (DListNode*)stable_ptr;
@@ -267,26 +252,23 @@ class DListCursor {
   bool unprot;
 
  public:
-  DListCursor(IDList* list) :
-    list_(list), current_node_(list->GetHead()) {
-    if(list->GetSyncMethod() == IDList::kSyncMwCAS) {
+  DListCursor(IDList* list) : list_(list), current_node_(list->GetHead()) {
+    if (list->GetSyncMethod() == IDList::kSyncMwCAS) {
       auto* epoch = ((MwCASDList*)list_)->GetEpoch();
       unprot = !epoch->IsProtected();
-      if(unprot) {
+      if (unprot) {
         epoch->Protect();
       }
     }
   }
 
   ~DListCursor() {
-    if(unprot && list_->GetSyncMethod() == IDList::kSyncMwCAS) {
+    if (unprot && list_->GetSyncMethod() == IDList::kSyncMwCAS) {
       ((MwCASDList*)list_)->GetEpoch()->Unprotect();
     }
   }
 
-  inline void Reset() {
-    current_node_ = list_->GetHead();
-  }
+  inline void Reset() { current_node_ = list_->GetHead(); }
 
   inline DListNode* Next() {
     current_node_ = list_->GetNext(current_node_, true);
