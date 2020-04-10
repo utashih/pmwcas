@@ -120,25 +120,6 @@ struct PMDKRootObj {
   DListNode* thread_node_pool[kMaxNumThreads];
 };
 
-class IWorkload {
- public:
-  virtual void Run() = 0;
-
- private:
-  uint32_t insert_pct{0};
-  uint32_t delete_pct{0};
-  uint32_t search_pct{0};
-  RandomNumberGenerator rng{};
-  const uint64_t kEpochThreshold{1000};
-  const uint64_t kPrealloc_nodes{1024 * 1024};
-};
-
-class CustomeWorkload : IWorkload {
-  void Run() {
-
-  }
-};
-
 struct DListBench : public Benchmark {
   DListBench()
       : Benchmark{}, cumulative_mwcas_stats{}, cumulative_dll_stats{} {}
@@ -148,6 +129,9 @@ struct DListBench : public Benchmark {
   DllStats cumulative_dll_stats;
   CoreLocal<DllStats*> stats;
   uint32_t initial_local_insert;
+  RandomNumberGenerator rng{};
+  static const uint64_t kEpochThreshold = 1000;
+  const uint64_t kPreallocNodes = 90000000;
 
   PMDKRootObj* root_obj{nullptr};
 
@@ -212,93 +196,115 @@ struct DListBench : public Benchmark {
     }
   }
 
-  void CustomeBenchmark(DListNode* nodes, size_t thread_index,
-                        DllStats* local_stats) {
-    const uint64_t kEpochThreshold = 1000;
+  void Main(size_t thread_index) {
+    DllStats* local_stats = new DllStats;
+    *stats.MyObject() = local_stats;
+
+    if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+      MwCASMetrics::ThreadInitialize();
+    }
+
     // WARNING: do not change the way these four variables are added
     // unless you know what you are doing.
     uint32_t insert_pct = FLAGS_insert_pct;
     uint32_t delete_pct = insert_pct + FLAGS_delete_pct;
     uint32_t search_pct = delete_pct + FLAGS_search_pct;
 
-    RandomNumberGenerator rng{};
+    Allocator::Get()->Allocate(
+        (void**)&(root_obj->thread_node_pool[thread_index]),
+        sizeof(DListNode) * kPreallocNodes);
+    DListNode* nodes = root_obj->thread_node_pool[thread_index];
 
-    auto* node = dll->GetHead();
-    bool mwcas = dll->GetSyncMethod() == IDList::kSyncMwCAS;
-    DListCursor cursor((IDList*)dll);
-    uint64_t epochs = 0;
-    uint64_t next_node = 0;
-    const uint64_t kPreallocNodes = 100000;
+    RAW_CHECK(nodes, "out of memory");
 
-    while (!IsShutdown()) {
-      if (mwcas && ++epochs == kEpochThreshold) {
-        ((MwCASDList*)dll)->GetEpoch()->Unprotect();
-        ((MwCASDList*)dll)->GetEpoch()->Protect();
-        epochs = 0;
+    WaitForStart();
+    RunWorkload(nodes, thread_index, local_stats);
+  }
+
+  virtual void RunWorkload(DListNode* nodes, size_t thread_index,
+                           DllStats* local_stats) = 0;
+
+  virtual void Dump(size_t thread_count, uint64_t run_ticks, uint64_t dump_id,
+                    bool final_dump) {
+    MARK_UNREFERENCED(thread_count);
+    Benchmark::Dump(thread_count, run_ticks, dump_id, final_dump);
+
+    if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+      MwCASMetrics mstats;
+      MwCASMetrics::Sum(mstats);
+      if (!final_dump) {
+        mstats -= cumulative_mwcas_stats;
+        cumulative_mwcas_stats += mstats;
       }
-      uint32_t op = rng.Generate(100);
-      uint64_t payload_base = (uint64_t)thread_index << 32;
-      bool forward = true;
-      if (op < insert_pct) {
-        uint64_t val =
-            (initial_local_insert + local_stats->n_insert) | payload_base;
-        auto* new_node = &nodes[next_node++];
-        RAW_CHECK(next_node < kPreallocNodes, "no more nodes");
-        new (new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
-        *(uint64_t*)new_node->GetPayload() = val;
-        Status s;
-        if (rng.Generate(2) == 0) {
-          s = dll->InsertAfter(node, new_node, true);
-        } else {
-          s = dll->InsertBefore(node, new_node, true);
-        }
-        if (s.ok()) {
-          ++local_stats->n_effective_insert;
-        }
-        ++local_stats->n_insert;
-      } else if (op < delete_pct) {
-        auto s = dll->Delete(node, true);
-        ++local_stats->n_delete;
-        if (s.ok()) {
-          ++local_stats->n_effective_delete;
-        }
-      } else {
-        // Search
-        if (node == dll->GetTail()) {
-          forward = false;
-        } else if (node == dll->GetHead()) {
-          forward = true;
-        } else {
-          uint64_t payload = *(uint64_t*)node->GetPayload();
-        }
-        if (forward) {
-          node = cursor.Next();
-        } else {
-          node = cursor.Prev();
-        }
-        ++local_stats->n_search;
-        ++local_stats->n_effective_search;
-      }
+      mstats.Print();
+    }
+
+    DllStats sum;
+    SumDllStats(sum);
+    if (final_dump) {
+      std::cout << "> Benchmark " << dump_id << " InsertPerSecond "
+                << (double)sum.n_insert / FLAGS_seconds << std::endl;
+      std::cout << "> Benchmark " << dump_id << " DeletePerSecond "
+                << (double)sum.n_delete / FLAGS_seconds << std::endl;
+      std::cout << "> Benchmark " << dump_id << " SearchPerSecond "
+                << (double)sum.n_search / FLAGS_seconds << std::endl;
+      std::cout << "> Benchmark " << dump_id << " EffectiveInsertPerSecond "
+                << (double)sum.n_effective_insert / FLAGS_seconds << std::endl;
+      std::cout << "> Benchmark " << dump_id << " EffectiveDeletePerSecond "
+                << (double)sum.n_effective_delete / FLAGS_seconds << std::endl;
+      std::cout << "> Benchmark " << dump_id << " EffectiveSearchPerSecond "
+                << (double)sum.n_effective_search / FLAGS_seconds << std::endl;
+    } else {
+      sum -= cumulative_dll_stats;
+      cumulative_dll_stats += sum;
+      std::cout << "> Benchmark " << dump_id << " Insert " << sum.n_insert
+                << std::endl;
+      std::cout << "> Benchmark " << dump_id << " Delete " << sum.n_delete
+                << std::endl;
+      std::cout << "> Benchmark " << dump_id << " Search " << sum.n_search
+                << std::endl;
+      std::cout << "> Benchmark " << dump_id << " EffectiveInsert "
+                << sum.n_effective_insert << std::endl;
+      std::cout << "> Benchmark " << dump_id << " EffectiveDelete "
+                << sum.n_effective_delete << std::endl;
+      std::cout << "> Benchmark " << dump_id << " EffectiveSearch "
+                << sum.n_effective_search << std::endl;
     }
   }
 
-  void ReadHeavyBenchmark(DListNode* nodes, size_t thread_index,
-                          DllStats* local_stats) {
-    const uint64_t kEpochThreshold = 1000;
+  void Teardown() { stats.Uninitialize(); }
+
+  void SumDllStats(DllStats& sum) {
+    for (uint32_t i = 0; i < stats.NumberOfObjects(); ++i) {
+      auto* thread_metric = *stats.GetObject(i);
+      sum += *thread_metric;
+    }
+  }
+
+  uint64_t GetOperationCount() {
+    if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
+      MwCASMetrics metrics;
+      MwCASMetrics::Sum(metrics);
+      return metrics.GetUpdateAttemptCount();
+    }
+    return 0;
+  }
+};
+
+struct DListReadHeavyBench : public DListBench {
+  void RunWorkload(DListNode* nodes, size_t thread_index,
+                   DllStats* local_stats) override {
     // WARNING: do not change the way these four variables are added
     // unless you know what you are doing.
     uint32_t insert_pct = FLAGS_insert_pct;
     uint32_t delete_pct = insert_pct + FLAGS_delete_pct;
     uint32_t search_pct = delete_pct + FLAGS_search_pct;
 
-    RandomNumberGenerator rng{};
-
     auto* node = dll->GetHead();
     bool mwcas = dll->GetSyncMethod() == IDList::kSyncMwCAS;
     DListCursor cursor((IDList*)dll);
     uint64_t epochs = 0;
     uint64_t next_node = 0;
-    const uint64_t kPreallocNodes = 100000;
     while (!IsShutdown()) {
       cursor.Reset();
       if (mwcas && ++epochs == kEpochThreshold) {
@@ -388,116 +394,74 @@ struct DListBench : public Benchmark {
         }
       }
     }
-  }
+  };
+};
 
-  void Main(size_t thread_index) {
-    DllStats* local_stats = new DllStats;
-    *stats.MyObject() = local_stats;
-
-    if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-      MwCASMetrics::ThreadInitialize();
-    }
-
+struct DListCustomBench : public DListBench {
+  void RunWorkload(DListNode* nodes, size_t thread_index,
+                   DllStats* local_stats) override {
     // WARNING: do not change the way these four variables are added
     // unless you know what you are doing.
     uint32_t insert_pct = FLAGS_insert_pct;
     uint32_t delete_pct = insert_pct + FLAGS_delete_pct;
     uint32_t search_pct = delete_pct + FLAGS_search_pct;
 
-    uint64_t payload_base = (uint64_t)thread_index << 32;
-    RandomNumberGenerator rng{};
-
-    const uint64_t kEpochThreshold = 1000;
-
-    const uint64_t kPreallocNodes = 100000;
-
-    Allocator::Get()->Allocate(
-        (void**)&(root_obj->thread_node_pool[thread_index]),
-        sizeof(DListNode) * kPreallocNodes);
-    DListNode* nodes = root_obj->thread_node_pool[thread_index];
-
-    RAW_CHECK(nodes, "out of memory");
-
-    uint64_t next_node = 0;
-
-    WaitForStart();
     auto* node = dll->GetHead();
     bool mwcas = dll->GetSyncMethod() == IDList::kSyncMwCAS;
-
     DListCursor cursor((IDList*)dll);
     uint64_t epochs = 0;
-    if (FLAGS_read_heavy) {
-      ReadHeavyBenchmark(nodes, thread_index, local_stats);
-    } else {
-      // This one resembles the original DLL paper's experiment
-      CustomeBenchmark(nodes, thread_index, local_stats);
-    }
-  }
+    uint64_t next_node = 0;
 
-  virtual void Dump(size_t thread_count, uint64_t run_ticks, uint64_t dump_id,
-                    bool final_dump) {
-    MARK_UNREFERENCED(thread_count);
-    Benchmark::Dump(thread_count, run_ticks, dump_id, final_dump);
-
-    if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-      MwCASMetrics mstats;
-      MwCASMetrics::Sum(mstats);
-      if (!final_dump) {
-        mstats -= cumulative_mwcas_stats;
-        cumulative_mwcas_stats += mstats;
+    while (!IsShutdown()) {
+      if (mwcas && ++epochs == kEpochThreshold) {
+        ((MwCASDList*)dll)->GetEpoch()->Unprotect();
+        ((MwCASDList*)dll)->GetEpoch()->Protect();
+        epochs = 0;
       }
-      mstats.Print();
+      uint32_t op = rng.Generate(100);
+      uint64_t payload_base = (uint64_t)thread_index << 32;
+      bool forward = true;
+      if (op < insert_pct) {
+        uint64_t val =
+            (initial_local_insert + local_stats->n_insert) | payload_base;
+        auto* new_node = &nodes[next_node++];
+        RAW_CHECK(next_node < kPreallocNodes, "no more nodes");
+        new (new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
+        *(uint64_t*)new_node->GetPayload() = val;
+        Status s;
+        if (rng.Generate(2) == 0) {
+          s = dll->InsertAfter(node, new_node, true);
+        } else {
+          s = dll->InsertBefore(node, new_node, true);
+        }
+        if (s.ok()) {
+          ++local_stats->n_effective_insert;
+        }
+        ++local_stats->n_insert;
+      } else if (op < delete_pct) {
+        auto s = dll->Delete(node, true);
+        ++local_stats->n_delete;
+        if (s.ok()) {
+          ++local_stats->n_effective_delete;
+        }
+      } else {
+        // Search
+        if (node == dll->GetTail()) {
+          forward = false;
+        } else if (node == dll->GetHead()) {
+          forward = true;
+        } else {
+          uint64_t payload = *(uint64_t*)node->GetPayload();
+        }
+        if (forward) {
+          node = cursor.Next();
+        } else {
+          node = cursor.Prev();
+        }
+        ++local_stats->n_search;
+        ++local_stats->n_effective_search;
+      }
     }
-
-    DllStats sum;
-    SumDllStats(sum);
-    if (final_dump) {
-      std::cout << "> Benchmark " << dump_id << " InsertPerSecond "
-                << (double)sum.n_insert / FLAGS_seconds << std::endl;
-      std::cout << "> Benchmark " << dump_id << " DeletePerSecond "
-                << (double)sum.n_delete / FLAGS_seconds << std::endl;
-      std::cout << "> Benchmark " << dump_id << " SearchPerSecond "
-                << (double)sum.n_search / FLAGS_seconds << std::endl;
-      std::cout << "> Benchmark " << dump_id << " EffectiveInsertPerSecond "
-                << (double)sum.n_effective_insert / FLAGS_seconds << std::endl;
-      std::cout << "> Benchmark " << dump_id << " EffectiveDeletePerSecond "
-                << (double)sum.n_effective_delete / FLAGS_seconds << std::endl;
-      std::cout << "> Benchmark " << dump_id << " EffectiveSearchPerSecond "
-                << (double)sum.n_effective_search / FLAGS_seconds << std::endl;
-    } else {
-      sum -= cumulative_dll_stats;
-      cumulative_dll_stats += sum;
-      std::cout << "> Benchmark " << dump_id << " Insert " << sum.n_insert
-                << std::endl;
-      std::cout << "> Benchmark " << dump_id << " Delete " << sum.n_delete
-                << std::endl;
-      std::cout << "> Benchmark " << dump_id << " Search " << sum.n_search
-                << std::endl;
-      std::cout << "> Benchmark " << dump_id << " EffectiveInsert "
-                << sum.n_effective_insert << std::endl;
-      std::cout << "> Benchmark " << dump_id << " EffectiveDelete "
-                << sum.n_effective_delete << std::endl;
-      std::cout << "> Benchmark " << dump_id << " EffectiveSearch "
-                << sum.n_effective_search << std::endl;
-    }
-  }
-
-  void Teardown() { stats.Uninitialize(); }
-
-  void SumDllStats(DllStats& sum) {
-    for (uint32_t i = 0; i < stats.NumberOfObjects(); ++i) {
-      auto* thread_metric = *stats.GetObject(i);
-      sum += *thread_metric;
-    }
-  }
-
-  uint64_t GetOperationCount() {
-    if (dll->GetSyncMethod() == IDList::kSyncMwCAS) {
-      MwCASMetrics metrics;
-      MwCASMetrics::Sum(metrics);
-      return metrics.GetUpdateAttemptCount();
-    }
-    return 0;
   }
 };
 
@@ -518,15 +482,23 @@ int main(int argc, char* argv[]) {
 
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(
                           FLAGS_pmdk_pool.c_str(), "doubly_linked_bench_layout",
-                          static_cast<uint64_t>(1024) * 1024 * 1204 * 4),
+                          static_cast<uint64_t>(1024) * 1024 * 1204 * 10),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
 
   pmwcas::DumpArgs();
-  pmwcas::DListBench test{};
-  test.Run(FLAGS_threads, FLAGS_seconds,
-           static_cast<pmwcas::AffinityPattern>(FLAGS_affinity),
-           FLAGS_metrics_dump_interval);
+  if (FLAGS_read_heavy) {
+    pmwcas::DListReadHeavyBench test{};
+    test.Run(FLAGS_threads, FLAGS_seconds,
+             static_cast<pmwcas::AffinityPattern>(FLAGS_affinity),
+             FLAGS_metrics_dump_interval);
+  } else {
+    // This one resembles the original DLL paper's experiment
+    pmwcas::DListCustomBench test{};
+    test.Run(FLAGS_threads, FLAGS_seconds,
+             static_cast<pmwcas::AffinityPattern>(FLAGS_affinity),
+             FLAGS_metrics_dump_interval);
+  }
   return 0;
 }
