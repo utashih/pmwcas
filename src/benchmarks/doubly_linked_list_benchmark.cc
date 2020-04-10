@@ -120,6 +120,25 @@ struct PMDKRootObj {
   DListNode* thread_node_pool[kMaxNumThreads];
 };
 
+class IWorkload {
+ public:
+  virtual void Run() = 0;
+
+ private:
+  uint32_t insert_pct{0};
+  uint32_t delete_pct{0};
+  uint32_t search_pct{0};
+  RandomNumberGenerator rng{};
+  const uint64_t kEpochThreshold{1000};
+  const uint64_t kPrealloc_nodes{1024 * 1024};
+};
+
+class CustomeWorkload : IWorkload {
+  void Run() {
+
+  }
+};
+
 struct DListBench : public Benchmark {
   DListBench()
       : Benchmark{}, cumulative_mwcas_stats{}, cumulative_dll_stats{} {}
