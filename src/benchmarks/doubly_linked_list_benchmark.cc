@@ -42,7 +42,7 @@ DEFINE_uint64(
 DEFINE_int32(initial_size, 0, "initial number of nodes in the list");
 DEFINE_string(sync, "pcas",
               "syncronization method: cas, pcas, mwcas, or pmwcas");
-DEFINE_int32(affinity, 1, "affinity to use in scheduling threads");
+DEFINE_int32(affinity, 0, "affinity to use in scheduling threads");
 DEFINE_uint64(threads, 2, "number of threads to use for multi-threaded tests");
 DEFINE_uint64(seconds, 10, "default time to run a benchmark");
 DEFINE_uint64(mwcas_desc_pool_size, 100000, "number of total descriptors");
@@ -136,7 +136,7 @@ struct DListBench : public Benchmark {
   uint32_t initial_local_insert;
   RandomNumberGenerator rng{};
   static const uint64_t kEpochThreshold = 1000;
-  const uint64_t kPreallocNodes = 9000000;
+  const uint64_t kPreallocNodes = 6000000;
 
   PMDKRootObj* root_obj{nullptr};
 
@@ -292,6 +292,8 @@ struct DListBench : public Benchmark {
   }
 };
 
+enum Operation { Insert = 0, Delete, Search };
+
 struct DListReadHeavyBench : public DListBench {
   void RunWorkload(DListNode* nodes, size_t thread_index,
                    DllStats* local_stats) override {
@@ -401,11 +403,11 @@ struct DListReadHeavyBench : public DListBench {
 struct DListCustomBench : public DListBench {
   void RunWorkload(DListNode* nodes, size_t thread_index,
                    DllStats* local_stats) override {
-    // WARNING: do not change the way these four variables are added
-    // unless you know what you are doing.
-    uint32_t insert_pct = FLAGS_insert_pct;
-    uint32_t delete_pct = insert_pct + FLAGS_delete_pct;
-    uint32_t search_pct = delete_pct + FLAGS_search_pct;
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::discrete_distribution<int> dist{float(FLAGS_insert_pct),
+                                         float(FLAGS_delete_pct),
+                                         float(FLAGS_search_pct)};
 
     auto* node = dll->GetHead();
     bool mwcas = dll->GetSyncMethod() == IDList::kSyncMwCAS;
@@ -413,56 +415,71 @@ struct DListCustomBench : public DListBench {
     uint64_t epochs = 0;
     uint64_t next_node = 0;
 
+    uint32_t op_stats[3] = {0, 0, 0};
     while (!IsShutdown()) {
       if (mwcas && ++epochs == kEpochThreshold) {
         ((MwCASDList*)dll)->GetEpoch()->Unprotect();
         ((MwCASDList*)dll)->GetEpoch()->Protect();
         epochs = 0;
       }
-      uint32_t op = rng.Generate(100);
+      Operation op = static_cast<Operation>(dist(gen));
+      op_stats[op] += 1;
+
       uint64_t payload_base = (uint64_t)thread_index << 32;
       bool forward = true;
-      if (op < insert_pct) {
-        uint64_t val =
-            (initial_local_insert + local_stats->n_insert) | payload_base;
-        auto* new_node = &nodes[next_node++];
-        RAW_CHECK(next_node < kPreallocNodes, "no more nodes");
-        new (new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
-        *(uint64_t*)new_node->GetPayload() = val;
-        Status s;
-        if (rng.Generate(2) == 0) {
-          s = dll->InsertAfter(node, new_node, true);
-        } else {
-          s = dll->InsertBefore(node, new_node, true);
+      switch (op) {
+        case Insert: {
+          uint64_t val =
+              (initial_local_insert + local_stats->n_insert) | payload_base;
+          auto* new_node = &nodes[next_node++];
+          RAW_CHECK(next_node < kPreallocNodes, "no more nodes");
+          new (new_node) DListNode(nullptr, nullptr, sizeof(uint64_t));
+          *(uint64_t*)new_node->GetPayload() = val;
+          Status s;
+          if (rng.Generate(2) == 0) {
+            s = dll->InsertAfter(node, new_node, true);
+          } else {
+            s = dll->InsertBefore(node, new_node, true);
+          }
+          if (s.ok()) {
+            ++local_stats->n_effective_insert;
+          }
+          ++local_stats->n_insert;
+          break;
         }
-        if (s.ok()) {
-          ++local_stats->n_effective_insert;
+        case Delete: {
+          auto s = dll->Delete(node, true);
+          ++local_stats->n_delete;
+          if (s.ok()) {
+            ++local_stats->n_effective_delete;
+          }
+          break;
         }
-        ++local_stats->n_insert;
-      } else if (op < delete_pct) {
-        auto s = dll->Delete(node, true);
-        ++local_stats->n_delete;
-        if (s.ok()) {
-          ++local_stats->n_effective_delete;
+        case Search: {
+          // Search
+          if (node == dll->GetTail()) {
+            forward = false;
+          } else if (node == dll->GetHead()) {
+            forward = true;
+          } else {
+            uint64_t payload = *(uint64_t*)node->GetPayload();
+          }
+          if (forward) {
+            node = cursor.Next();
+          } else {
+            node = cursor.Prev();
+          }
+          ++local_stats->n_search;
+          ++local_stats->n_effective_search;
+          break;
         }
-      } else {
-        // Search
-        if (node == dll->GetTail()) {
-          forward = false;
-        } else if (node == dll->GetHead()) {
-          forward = true;
-        } else {
-          uint64_t payload = *(uint64_t*)node->GetPayload();
+        default: {
+          std::cout << "not implemented!" << std::endl;
         }
-        if (forward) {
-          node = cursor.Next();
-        } else {
-          node = cursor.Prev();
-        }
-        ++local_stats->n_search;
-        ++local_stats->n_effective_search;
       }
     }
+    LOG(INFO) << "Insert: " << op_stats[0] << ", delete: " << op_stats[1]
+              << ", search: " << op_stats[2] << std::endl;
   }
 };
 
@@ -483,7 +500,7 @@ int main(int argc, char* argv[]) {
 
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(
                           FLAGS_pmdk_pool.c_str(), "doubly_linked_bench_layout",
-                          static_cast<uint64_t>(1024) * 1024 * 1204 * 10),
+                          static_cast<uint64_t>(1024) * 1024 * 1204 * 20),
                       pmwcas::PMDKAllocator::Destroy,
                       pmwcas::LinuxEnvironment::Create,
                       pmwcas::LinuxEnvironment::Destroy);
