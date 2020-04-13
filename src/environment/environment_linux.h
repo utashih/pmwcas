@@ -399,10 +399,9 @@ POBJ_LAYOUT_END(allocator)
 /// A wrapper for using PMDK allocator
 class PMDKAllocator : IAllocator {
  public:
-
   PMDKAllocator(PMEMobjpool* pop, const char* file_name)
       : pop(pop), file_name(file_name) {}
-  ~PMDKAllocator() { pmemobj_close(pop); }
+  ~PMDKAllocator() {}
 
   static std::function<Status(IAllocator*&)> Create(const char* pool_name,
                                                     const char* layout_name,

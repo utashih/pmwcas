@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -lrt -march=native")
 
-if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+if (CMAKE_BUILD_TYPE EQUAL "Release")
   message("-- Release mode, all optimizations enabled")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Ofast")
 endif ()
@@ -160,10 +160,10 @@ add_definitions(-DAPPS)
 
 # Set the link libraries to for test compilation
 set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
-set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lrt -lnuma -fPIC")
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lnuma -fPIC")
 
 # Set the link libraries to for benchmark binary compilation
-set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-fPIC -lpthread -lrt -lnuma")
+set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-fPIC -lpthread -lnuma")
 
 enable_testing()
 
