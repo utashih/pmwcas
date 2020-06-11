@@ -439,9 +439,7 @@ class PMDKAllocator : IAllocator {
 
   void Allocate(void** mem, size_t nSize) override {
     TX_BEGIN(pop) {
-      if (*mem != nullptr) {
-        pmemobj_tx_add_range_direct(mem, sizeof(uint64_t));
-      }
+      pmemobj_tx_add_range_direct(mem, sizeof(uint64_t));
       *mem =
           (char*)pmemobj_direct(pmemobj_tx_alloc(nSize, TOID_TYPE_NUM(char)));
     }
