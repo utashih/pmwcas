@@ -135,8 +135,7 @@ struct MwCASMetrics {
 
   static Status ThreadInitialize() {
     if (enabled) {
-      MwCASMetrics* tls_metrics = nullptr;
-      Allocator::Get()->Allocate((void**)&tls_metrics, sizeof(MwCASMetrics));
+      MwCASMetrics* tls_metrics = new MwCASMetrics();
       if (!tls_metrics) {
         return Status::OutOfMemory();
       }

@@ -105,10 +105,10 @@ struct MwCas : public Benchmark {
       return;
     }
     // Check the array for correctness
-    unique_ptr_t<int64_t> found = alloc_unique<int64_t>(
-      sizeof(int64_t) * FLAGS_array_size);
+    std::unique_ptr<int64_t> found(
+        (int64_t *)malloc(sizeof(int64_t) * FLAGS_array_size));
 
-    for(uint32_t i = 0; i < FLAGS_array_size; i++) {
+    for (uint32_t i = 0; i < FLAGS_array_size; i++) {
       found.get()[i] = 0;
     }
 
