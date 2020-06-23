@@ -31,8 +31,16 @@ const std::string kSharedMemorySegmentName = "mwcastest";
 
 GTEST_TEST(PMwCASTest, SingleThreadedUpdateSuccess) {
   auto thread_count = Environment::Get()->GetCoreCount();
-  std::unique_ptr<pmwcas::DescriptorPool> pool(
-      new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count));
+
+#ifdef PMDK
+  auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
+  auto pool = reinterpret_cast<pmwcas::DescriptorPool*>(
+      allocator->GetRoot(sizeof(pmwcas::DescriptorPool)));
+  new (pool) pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#else
+  auto pool = new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#endif
+
   RandomNumberGenerator rng(rand(), 0, kTestArraySize);
   PMwCASPtr test_array[kTestArraySize];
   PMwCASPtr* addresses[kWordsToUpdate];
@@ -44,7 +52,7 @@ GTEST_TEST(PMwCASTest, SingleThreadedUpdateSuccess) {
     values[i] = 0;
   }
 
-  pool.get()->GetEpoch()->Protect();
+  pool->GetEpoch()->Protect();
 
   for (uint32_t i = 0; i < kWordsToUpdate; ++i) {
   retry:
@@ -73,14 +81,22 @@ GTEST_TEST(PMwCASTest, SingleThreadedUpdateSuccess) {
     EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
   }
 
-  pool.get()->GetEpoch()->Unprotect();
+  pool->GetEpoch()->Unprotect();
   Thread::ClearRegistry(true);
 }
 
 GTEST_TEST(PMwCASTest, SingleThreadedAbort) {
   auto thread_count = Environment::Get()->GetCoreCount();
-  std::unique_ptr<pmwcas::DescriptorPool> pool(
-      new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count));
+
+#ifdef PMDK
+  auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
+  auto pool = reinterpret_cast<pmwcas::DescriptorPool*>(
+      allocator->GetRoot(sizeof(pmwcas::DescriptorPool)));
+  new (pool) pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#else
+  auto pool = new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#endif
+
   RandomNumberGenerator rng(rand(), 0, kTestArraySize);
   PMwCASPtr test_array[kTestArraySize];
   PMwCASPtr* addresses[kWordsToUpdate];
@@ -103,7 +119,7 @@ GTEST_TEST(PMwCASTest, SingleThreadedAbort) {
     addresses[i] = reinterpret_cast<PMwCASPtr*>(&test_array[idx]);
   }
 
-  pool.get()->GetEpoch()->Protect();
+  pool->GetEpoch()->Protect();
 
   auto descriptor = pool->AllocateDescriptor();
   EXPECT_NE(nullptr, descriptor.GetRaw());
@@ -118,14 +134,22 @@ GTEST_TEST(PMwCASTest, SingleThreadedAbort) {
     EXPECT_EQ(0ull, *((uint64_t*)addresses[i]));
   }
 
-  pool.get()->GetEpoch()->Unprotect();
+  pool->GetEpoch()->Unprotect();
   Thread::ClearRegistry(true);
 }
 
 GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
   auto thread_count = Environment::Get()->GetCoreCount();
-  std::unique_ptr<pmwcas::DescriptorPool> pool(
-      new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count));
+
+#ifdef PMDK
+  auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
+  auto pool = reinterpret_cast<pmwcas::DescriptorPool*>(
+      allocator->GetRoot(sizeof(pmwcas::DescriptorPool)));
+  new (pool) pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#else
+  auto pool = new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#endif
+
   RandomNumberGenerator rng(rand(), 0, kTestArraySize);
   PMwCASPtr test_array[kTestArraySize];
   PMwCASPtr* addresses[kWordsToUpdate];
@@ -151,7 +175,7 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
     addresses[i] = reinterpret_cast<PMwCASPtr*>(&test_array[idx]);
   }
 
-  pool.get()->GetEpoch()->Protect();
+  pool->GetEpoch()->Protect();
 
   auto descriptor = pool->AllocateDescriptor();
   EXPECT_NE(nullptr, descriptor.GetRaw());
@@ -166,9 +190,9 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
     EXPECT_EQ(1ull, *((uint64_t*)addresses[i]));
   }
 
-  pool.get()->GetEpoch()->Unprotect();
+  pool->GetEpoch()->Unprotect();
 
-  pool.get()->GetEpoch()->Protect();
+  pool->GetEpoch()->Protect();
 
   auto new_descriptor = pool->AllocateDescriptor();
   EXPECT_NE(nullptr, descriptor.GetRaw());
@@ -179,7 +203,7 @@ GTEST_TEST(PMwCASTest, SingleThreadedConflict) {
 
   EXPECT_FALSE(new_descriptor.MwCAS());
 
-  pool.get()->GetEpoch()->Unprotect();
+  pool->GetEpoch()->Unprotect();
   Thread::ClearRegistry(true);
 }
 
@@ -233,8 +257,14 @@ void ArraySanityCheck(uint64_t* array) {
 GTEST_TEST(PMwCASTest, MultiThreadedUpdate) {
   uint64_t array[ARRAY_SIZE];
   memset(array, 0, sizeof(uint64_t) * ARRAY_SIZE);
-  std::unique_ptr<pmwcas::DescriptorPool> pool(new pmwcas::DescriptorPool(
-      kDescriptorPoolSize * THREAD_COUNT, THREAD_COUNT));
+#ifdef PMDK
+  auto allocator = reinterpret_cast<PMDKAllocator*>(Allocator::Get());
+  auto pool = reinterpret_cast<pmwcas::DescriptorPool*>(
+      allocator->GetRoot(sizeof(pmwcas::DescriptorPool)));
+  new (pool) pmwcas::DescriptorPool(kDescriptorPoolSize, THREAD_COUNT);
+#else
+  auto pool = new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+#endif
 
   std::thread workers[THREAD_COUNT];
 
@@ -245,7 +275,7 @@ GTEST_TEST(PMwCASTest, MultiThreadedUpdate) {
   static const uint32_t repeat_times = 20;
   for (uint32_t t = 0; t < repeat_times; t += 1) {
     for (uint32_t i = 0; i < THREAD_COUNT; i += 1) {
-      workers[i] = std::thread(thread_work, array, pool.get(), 50);
+      workers[i] = std::thread(thread_work, array, pool, 50);
     }
     for (uint32_t i = 0; i < THREAD_COUNT; i += 1) {
       workers[i].join();

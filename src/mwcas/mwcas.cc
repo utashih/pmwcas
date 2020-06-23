@@ -456,8 +456,15 @@ retry:
 bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
   DCHECK(owner_partition_->garbage_list->GetEpoch()->IsProtected());
 
-  if(status_ != kStatusUndecided) {
-    if(calldepth > 0) {
+  if (calldepth == 0) {
+    std::sort(words_, words_ + count_,
+              [this](WordDescriptor& a, WordDescriptor& b) -> bool {
+                return a.address_ < b.address_;
+              });
+  }
+
+  if (status_ != kStatusUndecided) {
+    if (calldepth > 0) {
       // Short circuit and return if the operation has already concluded.
       MwCASMetrics::AddBailedHelp();
       return status_ == kStatusSucceeded;
@@ -471,16 +478,18 @@ bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
 
   // Try to swap a pointer to this descriptor into all target addresses using
   // CondCAS
+  // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
-  // If this operation is helping along, go to phase 2 directly
-  if(calldepth == 0 && !RTMInstallDescriptors()) {
-    my_status = kStatusFailed;
-  }
+  auto rtm_install_success = RTMInstallDescriptors(words_, kDirtyFlag);
 #else
+  auto rtm_install_success = false;
+#endif
 
-  for(uint32_t i = 0; i < count_ && my_status == kStatusSucceeded; i++) {
+  for (uint32_t i = 0;
+       i < count_ && my_status == kStatusSucceeded && !rtm_install_success;
+       i++) {
     WordDescriptor* wd = &words_[i];
-    if((uint64_t)wd->address_ == Descriptor::kAllocNullAddress){
+    if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
       continue;
     }
 retry_entry:
@@ -506,8 +515,7 @@ retry_entry:
       // rval must be another value, we failed
       my_status = kStatusFailed;
     }
-  }
-#endif
+}
 
   CompareExchange32(&status_, my_status, kStatusUndecided);
 
