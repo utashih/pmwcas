@@ -263,7 +263,7 @@ GTEST_TEST(PMwCASTest, MultiThreadedUpdate) {
       allocator->GetRoot(sizeof(pmwcas::DescriptorPool)));
   new (pool) pmwcas::DescriptorPool(kDescriptorPoolSize, THREAD_COUNT);
 #else
-  auto pool = new pmwcas::DescriptorPool(kDescriptorPoolSize, thread_count);
+  auto pool = new pmwcas::DescriptorPool(kDescriptorPoolSize, THREAD_COUNT);
 #endif
 
   std::thread workers[THREAD_COUNT];
@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
                       pmwcas::LinuxEnvironment::Destroy);
 #else
   pmwcas::InitLibrary(
-      pmwcas::TlsAllocator::Create, pmwcas::TlsAllocator::Destroy,
+      pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
       pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
 #endif
 #endif

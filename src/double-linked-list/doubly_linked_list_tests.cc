@@ -524,7 +524,7 @@ int main(int argc, char** argv) {
                       pmwcas::LinuxEnvironment::Destroy);
 #else
   pmwcas::InitLibrary(
-      pmwcas::TlsAllocator::Create, pmwcas::TlsAllocator::Destroy,
+      pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
       pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
 #endif  // PMDK
 #endif  // WIN32

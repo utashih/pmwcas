@@ -476,46 +476,51 @@ bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
   uint64_t descptr = SetFlags(this, kMwCASFlag);
   uint32_t my_status = kStatusSucceeded;
 
-  // Try to swap a pointer to this descriptor into all target addresses using
-  // CondCAS
-  // Try RTM install first, if failed go to fallback solution.
+  // Go to phase 2 directly if helping along.
+  if (calldepth > 0) {
+    my_status = kStatusFailed;
+  }
+
+  if (my_status == kStatusSucceeded) {
+    // Try to swap a pointer to this descriptor into all target addresses using
+    // CondCAS
+    // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
-  auto rtm_install_success = RTMInstallDescriptors(words_, kDirtyFlag);
+    auto rtm_install_success = RTMInstallDescriptors(words_, kDirtyFlag);
 #else
-  auto rtm_install_success = false;
+    auto rtm_install_success = false;
 #endif
 
-  for (uint32_t i = 0;
-       i < count_ && my_status == kStatusSucceeded && !rtm_install_success;
-       i++) {
-    WordDescriptor* wd = &words_[i];
-    if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
-      continue;
-    }
-retry_entry:
-    auto rval = CondCAS(i, words_);
+    for (uint32_t i = 0; i < count_ && !rtm_install_success; i++) {
+      WordDescriptor* wd = &words_[i];
+      if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
+        continue;
+      }
+    retry_entry:
+      auto rval = CondCAS(i, words_);
 
-    // Ok if a) we succeeded to swap in a pointer to this descriptor or b) some
-    // other thread has already done so.
-    if(rval == wd->old_value_ || rval == descptr) {
-      continue;
-    }
+      // Ok if a) we succeeded to swap in a pointer to this descriptor or b)
+      // some other thread has already done so.
+      if (rval == wd->old_value_ || CleanPtr(rval) == (uint64_t)this) {
+        continue;
+      }
 
-    // Do we need to help another MWCAS operation?
-    if(IsMwCASDescriptorPtr(rval)) {
+      // Do we need to help another MWCAS operation?
+      if (IsMwCASDescriptorPtr(rval)) {
 #if PMWCAS_THREAD_HELP == 1
-      // Clashed with another MWCAS; help complete the other MWCAS if it is
-      // still being worked on.
-      Descriptor *otherMWCAS = (Descriptor *)CleanPtr(rval);
-      otherMWCAS->VolatileMwCAS(calldepth + 1);
-      MwCASMetrics::AddHelpAttempt();
+        // Clashed with another MWCAS; help complete the other MWCAS if it is
+        // still being worked on.
+        Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
+        otherMWCAS->VolatileMwCAS(calldepth + 1);
+        MwCASMetrics::AddHelpAttempt();
 #endif
-      goto retry_entry;
-    } else {
-      // rval must be another value, we failed
-      my_status = kStatusFailed;
+        goto retry_entry;
+      } else {
+        // rval must be another value, we failed
+        my_status = kStatusFailed;
+      }
     }
-}
+  }
 
   CompareExchange32(&status_, my_status, kStatusUndecided);
 
@@ -581,54 +586,54 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
     my_status = kStatusFailed;
   }
 
-  // Try RTM install first, if failed go to fallback solution.
+  if (my_status == kStatusSucceeded) {
+    // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
-  auto rtm_install_success = RTMInstallDescriptors(tls_desc, kDirtyFlag);
+    auto rtm_install_success = RTMInstallDescriptors(tls_desc, kDirtyFlag);
 #else
-  auto rtm_install_success = false;
+    auto rtm_install_success = false;
 #endif
-  for (uint32_t i = 0;
-       i < count_ && my_status == kStatusSucceeded && !rtm_install_success;
-       ++i) {
-    WordDescriptor* wd = &words_[i];
-    // Skip entries added purely for allocating memory
-    if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
-      continue;
-    }
-  retry_entry:
-    auto rval = CondCAS(i, tls_desc, kDirtyFlag);
+    for (uint32_t i = 0; i < count_ && !rtm_install_success; ++i) {
+      WordDescriptor* wd = &words_[i];
+      // Skip entries added purely for allocating memory
+      if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
+        continue;
+      }
+    retry_entry:
+      auto rval = CondCAS(i, tls_desc, kDirtyFlag);
 
-    // Ok if a) we succeeded to swap in a pointer to this descriptor or b)
-    // some other thread has already done so. Need to persist all fields
-    // (which point to descriptors) before switching to final status, so that
-    // recovery will know reliably whether to roll forward or back for this
-    // descriptor.
-    if (rval == wd->old_value_ || CleanPtr(rval) == (uint64_t)this) {
-      continue;
-    }
-
-    if (rval & kDirtyFlag) {
-      goto retry_entry;
-    }
-
-    // Do we need to help another MWCAS operation?
-    if (IsMwCASDescriptorPtr(rval)) {
-#if PMWCAS_THREAD_HELP == 1
-      if (rval & kDirtyFlag) {
-        wd->PersistAddress();
-        CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
+      // Ok if a) we succeeded to swap in a pointer to this descriptor or b)
+      // some other thread has already done so. Need to persist all fields
+      // (which point to descriptors) before switching to final status, so that
+      // recovery will know reliably whether to roll forward or back for this
+      // descriptor.
+      if (rval == wd->old_value_ || CleanPtr(rval) == (uint64_t)this) {
+        continue;
       }
 
-      // Clashed with another MWCAS; help complete the other MWCAS if it is
-      // still in flight.
-      Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
-      otherMWCAS->PersistentMwCAS(calldepth + 1);
-      MwCASMetrics::AddHelpAttempt();
+      if (rval & kDirtyFlag) {
+        goto retry_entry;
+      }
+
+      // Do we need to help another MWCAS operation?
+      if (IsMwCASDescriptorPtr(rval)) {
+#if PMWCAS_THREAD_HELP == 1
+        if (rval & kDirtyFlag) {
+          wd->PersistAddress();
+          CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
+        }
+
+        // Clashed with another MWCAS; help complete the other MWCAS if it is
+        // still in flight.
+        Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
+        otherMWCAS->PersistentMwCAS(calldepth + 1);
+        MwCASMetrics::AddHelpAttempt();
 #endif
-      goto retry_entry;
-    } else {
-      // rval must be another value, we failed
-      my_status = kStatusFailed;
+        goto retry_entry;
+      } else {
+        // rval must be another value, we failed
+        my_status = kStatusFailed;
+      }
     }
   }
   // Switch to the final state, the MwCAS concludes after this point

@@ -629,16 +629,18 @@ private:
 
   #ifndef RTM
     if(val & kCondCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
       Descriptor::WordDescriptor* wd =
-        (Descriptor::WordDescriptor*)Descriptor::CleanPtr(val);
+          (Descriptor::WordDescriptor*)Descriptor::CleanPtr(val);
       uint64_t dptr = Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag);
       RAW_CHECK((char*)this == (char*)wd->address_, "wrong addresses");
 
-      CompareExchange64(
-        wd->address_,
-        *wd->status_address_ == Descriptor::kStatusUndecided ?
-            dptr : wd->old_value_,
-        val);
+      CompareExchange64(wd->address_,
+                        *wd->status_address_ == Descriptor::kStatusUndecided
+                            ? dptr
+                            : wd->old_value_,
+                        val);
+#endif
       goto retry;
     }
   #endif
@@ -665,6 +667,7 @@ private:
 
 #ifndef RTM
     if(val & kCondCASFlag) {
+#if PMWCAS_THREAD_HELP == 1
       Descriptor::WordDescriptor* wd =
         (Descriptor::WordDescriptor*)Descriptor::CleanPtr(val);
       uint64_t dptr = Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag);
@@ -674,6 +677,7 @@ private:
         *wd->status_address_ == Descriptor::kStatusUndecided ?
             dptr : wd->old_value_,
         val);
+#endif
       goto retry;
     }
 #endif
