@@ -61,14 +61,6 @@ stages:
   - job: clean
     dependsOn: benchmark
     steps:
-      - script: docker rm pmwcas_$(Build.BuildId)_test 
-        displayName: 'Clean the image'
-        condition: always()
-
-      - script: docker rm pmwcas_$(Build.BuildId)_bench
-        displayName: 'Clean the image'
-        condition: always()
-
-      - script: docker rmi pmwcas_$(Build.BuildId) --force
-        displayName: 'Clean the container'
+      - script: docker rmi $(docker images --filter=reference="pmwcas_$(Build.BuildId)*" -q) --force
+        displayName: 'Clean the containers'
         condition: always()
