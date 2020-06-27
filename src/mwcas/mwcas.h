@@ -627,7 +627,6 @@ private:
   retry:
     uint64_t val = (uint64_t)value_;
 
-  #ifndef RTM
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       Descriptor::WordDescriptor* wd =
@@ -643,7 +642,6 @@ private:
 #endif
       goto retry;
     }
-  #endif
 
     if(val & kMwCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
@@ -665,7 +663,6 @@ private:
   retry:
     uint64_t val = (uint64_t)value_;
 
-#ifndef RTM
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       Descriptor::WordDescriptor* wd =
@@ -680,7 +677,6 @@ private:
 #endif
       goto retry;
     }
-#endif
 
     if(val & kMwCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
@@ -704,7 +700,6 @@ private:
 retry:
     uint64_t val = (uint64_t)value_;
 
-#ifndef RTM
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       RAW_CHECK((val & kDirtyFlag) == 0,
@@ -721,7 +716,6 @@ retry:
 #endif
       goto retry;
     }
-#endif
 
     if(val & kDirtyFlag) {
       goto retry;
@@ -748,7 +742,7 @@ retry:
 
   retry:
     uint64_t val = (uint64_t)value_;
-#ifndef RTM
+
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on CondCAS descriptor");
@@ -764,7 +758,6 @@ retry:
 #endif
       goto retry;
     }
-#endif
 
     if(val & kDirtyFlag) {
       goto retry;

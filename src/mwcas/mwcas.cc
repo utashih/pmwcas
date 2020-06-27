@@ -486,7 +486,7 @@ bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
     // CondCAS
     // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
-    auto rtm_install_success = RTMInstallDescriptors(words_, kDirtyFlag);
+    auto rtm_install_success = RTMInstallDescriptors(words_);
 #else
     auto rtm_install_success = false;
 #endif
