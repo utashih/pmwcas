@@ -303,12 +303,6 @@ void Descriptor::Initialize() {
 #endif
 }
 
-void* Descriptor::DefaultAllocateCallback(size_t size) {
-  void *mem = nullptr;
-  Allocator::Get()->AllocateAligned(&mem, size, kCacheLineSize);
-  return mem;
-}
-
 void Descriptor::DefaultFreeCallback(void* context, void* p) {
   Allocator::Get()->FreeAligned(p);
 }

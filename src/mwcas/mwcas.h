@@ -155,12 +155,6 @@ public:
   /// Signaure for garbage free callback (see free_callback_ below)
   typedef void (*FreeCallback)(void* context, void* word);
 
-  /// Signature for NVM allocation callback (see allocate_callback_ below)
-  typedef void* (*AllocateCallback)(size_t size);
-
-  /// The default NVM allocate callback used if no callback is specified by the user
-  static void* DefaultAllocateCallback(size_t size);
-
   /// The default free callback used if no callback is specified by the user
   static void DefaultFreeCallback(void* context, void* p);
 
