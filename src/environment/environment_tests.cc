@@ -295,28 +295,6 @@ TEST_F(ThreadpoolTest, DISABLED_Schedule) {
 }
 #endif
 
-TEST_F(SharedMemoryTest, DISABLED_AttachDetach) {
-  SharedMemorySegment* new_seg = nullptr;
-  SharedMemorySegment* existing_seg = nullptr;
-
-  ASSERT_TRUE(Environment::Get()->NewSharedMemorySegment(test_segment_name, 256,
-      false, &new_seg).ok());
-  ASSERT_NE(nullptr, new_seg);
-  ASSERT_TRUE(new_seg->Attach(nullptr).ok());
-  void* new_mem = new_seg->GetMapAddress();
-  memcpy(new_mem, test_segment_name.c_str(), 10);
-
-  ASSERT_TRUE(Environment::Get()->NewSharedMemorySegment(test_segment_name, 256,
-      true, &existing_seg).ok());
-  ASSERT_NE(nullptr, existing_seg);
-  ASSERT_TRUE(existing_seg->Attach(nullptr).ok());
-  void* existing_mem = existing_seg->GetMapAddress();
-  for(int i = 0; i < 10; i++) {
-    ASSERT_EQ(test_segment_name.c_str()[i], ((char*)existing_mem)[i]);
-  }
-  ASSERT_TRUE(new_seg->Detach().ok());
-  ASSERT_TRUE(existing_seg->Detach().ok());
-}
 
 } // namespace pmwcas
 

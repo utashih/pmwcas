@@ -53,18 +53,6 @@ Status LinuxEnvironment::NewRandomReadWriteAsyncFile(const std::string& filename
   return Status::NotSupported("Not implemented");
 }
 
-Status LinuxEnvironment::NewSharedMemorySegment(const std::string& segname,
-    uint64_t size, bool open_existing, SharedMemorySegment** seg) {
-  *seg = nullptr;
-  unique_ptr_t<SharedMemorySegment> alloc_guard;
-  RETURN_NOT_OK(LinuxSharedMemorySegment::Create(alloc_guard));
-
-  RETURN_NOT_OK(alloc_guard->Initialize(segname, size, open_existing));
-
-  *seg = alloc_guard.release();
-  return Status::OK();
-}
-
 Status LinuxEnvironment::NewThreadPool(uint32_t max_threads,
     ThreadPool** pool) {
   return Status::NotSupported("Not implemented");
@@ -173,72 +161,6 @@ Status LinuxEnvironment::SetThreadAffinity(pthread_t thread, uint64_t core,
   }
 
   return Status::OK();
-}
-
-LinuxSharedMemorySegment::LinuxSharedMemorySegment()
-  : SharedMemorySegment()
-  , segment_name_ { "" }
-  , size_ { 0 }
-  , map_fd_ { 0 }
-  , map_address_ { nullptr } {
-}
-
-LinuxSharedMemorySegment::~LinuxSharedMemorySegment() {}
-
-SharedMemorySegment::~SharedMemorySegment() {}
-
-Status LinuxSharedMemorySegment::Create(
-    unique_ptr_t<SharedMemorySegment>& segment) {
-  segment.reset();
-  segment = alloc_unique<SharedMemorySegment>(sizeof(LinuxSharedMemorySegment));
-  if(!segment.get()) return Status::OutOfMemory();
-  new(segment.get())LinuxSharedMemorySegment();
-
-  return Status::OK();
-}
-
-Status LinuxSharedMemorySegment::Initialize(const std::string& segname,
-    uint64_t size, bool open_existing) {
-  segment_name_ = segname;
-  size_ = size;
-
-  if(open_existing) {
-    // Open an existing mapping to Attach() later
-    map_fd_ = shm_open(segment_name_.c_str(), O_RDWR, S_IRWXU|S_IRUSR|S_IWUSR);
-  } else {
-    // Create a new mapping for others and me to Attach() later
-    map_fd_ = shm_open(segment_name_.c_str(),
-        O_CREAT|O_RDWR, S_IRWXU|S_IRUSR|S_IWUSR); 
-    auto ret = ftruncate(map_fd_, size_);
-    (void)ret;
-  }
-  if(-1 == map_fd_) {
-    return Status::IOError("Failed to create file mapping",
-                           std::string(strerror(errno)));
-  }
-  return Status::OK();
-}
-
-Status LinuxSharedMemorySegment::Attach(void* base_address) {
-  map_address_ = mmap(base_address, size_, PROT_READ|PROT_WRITE,
-      MAP_SHARED|MAP_LOCKED, map_fd_, (off_t)0);
-  if(MAP_FAILED == map_address_) {
-    return Status::IOError(
-        "Failed to attach to shared memory segment " + segment_name_ +
-        " of " + std::to_string(size_) + " bytes with base address " +
-        std::to_string((uint64_t)base_address), std::string(strerror(errno)));
-  }
-  return Status::OK();
-}
-
-Status LinuxSharedMemorySegment::Detach() {
-  munmap(map_address_, size_);
-  map_address_ = nullptr;
-  return Status::OK();
-}
-
-void* LinuxSharedMemorySegment::GetMapAddress() {
-  return map_address_;
 }
 
 } // namespace pmwcas

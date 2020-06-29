@@ -191,11 +191,6 @@ class IEnvironment {
       const FileOptions& options, ThreadPool* threadpool,
       RandomReadWriteAsyncFile** file, bool* exists = nullptr) = 0;
 
-  /// Create a shared memory segment for sharing among processes which can
-  /// attach to it. Set [open_existing] to true for attaching to an existing shm
-  /// segment, otherwise a new segment is created.
-  virtual Status NewSharedMemorySegment(const std::string& segname,
-      uint64_t size, bool open_existing, SharedMemorySegment** seg) = 0;
 
   /// Produce a new threadpool for the target OS.
   virtual Status NewThreadPool(uint32_t max_threads, ThreadPool** pool) = 0;
