@@ -21,6 +21,5 @@ set(COMMON_TEST_SOURCES
   unordered_map_test.cc
 )
 
-ADD_PMWCAS_TEST(allocator_internal_test)
 ADD_PMWCAS_TEST(epoch_test)
 ADD_PMWCAS_TEST(garbage_list_test)

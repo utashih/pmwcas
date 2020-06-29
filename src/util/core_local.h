@@ -3,10 +3,7 @@
 
 #pragma once 
 #include "src/common/allocator_internal.h"
-
-#ifndef WIN32
 #include <unistd.h>
-#endif
 
 namespace pmwcas {
 
@@ -28,13 +25,8 @@ class CoreLocal {
   Status Initialize() {
     RAW_CHECK(!objects_, "already initialized");
 
-#ifdef WIN32
-    SYSTEM_INFO sysinfo;
-    GetSystemInfo(&sysinfo);
-    core_count_ = sysinfo.dwNumberOfProcessors;
-#else
+
     core_count_ = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
     RAW_CHECK(core_count_, "invalid core count");
 
     uint64_t size = core_count_ *

@@ -10,11 +10,7 @@
 #include "include/allocator.h"
 #include "util/hash.h"
 #include "common/epoch.h"
-#ifdef WIN32
-#include "environment/environment_windows.h"
-#else
 #include "environment/environment_linux.h"
-#endif
 
 namespace pmwcas {
 
@@ -81,24 +77,6 @@ TEST_F(EpochManagerTest, Unprotect) {
   EXPECT_TRUE(mgr_.Protect().ok());
   mgr_.BumpCurrentEpoch();
   EXPECT_TRUE(mgr_.Unprotect().ok());
-
-#ifdef WIN32
-  // Make sure the table is clear except the one new entry.
-  auto* table = mgr_.epoch_table_->table_;
-  for(size_t i = 0; i < mgr_.epoch_table_->size_; ++i) {
-    const auto& entry = table[i];
-    if(entry.thread_id != 0) {
-      EXPECT_EQ(Environment::Get()->GetThreadId(),
-          (DWORD)entry.thread_id.load());
-      EXPECT_EQ(0llu, entry.protected_epoch.load());
-      EXPECT_EQ(3llu, entry.last_unprotected_epoch);
-      return;
-    }
-    EXPECT_EQ(0lu, (DWORD)entry.thread_id.load());
-    EXPECT_EQ(0llu, entry.protected_epoch.load());
-    EXPECT_EQ(0llu, entry.last_unprotected_epoch);
-  }
-#endif
 }
 
 TEST_F(EpochManagerTest, BumpCurrentEpoch) {
@@ -306,16 +284,9 @@ TEST_F(MinEpochTableTest, reserveEntry) {
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
-#ifdef WIN32
-  pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create,
-                           pmwcas::DefaultAllocator::Destroy,
-                           pmwcas::WindowsEnvironment::Create,
-                           pmwcas::WindowsEnvironment::Destroy);
-#else
   pmwcas::InitLibrary(pmwcas::TlsAllocator::Create,
                            pmwcas::TlsAllocator::Destroy,
                            pmwcas::LinuxEnvironment::Create,
                            pmwcas::LinuxEnvironment::Destroy);
-#endif
   return RUN_ALL_TESTS();
 }

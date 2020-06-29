@@ -3,14 +3,7 @@
 
 #pragma once
 
-#ifdef WIN32
-#define NOMINMAX
-#endif
-
-#ifndef WIN32
 #include <x86intrin.h>
-#endif
-
 #include <memory>
 #include <assert.h>
 #include <cstdio>

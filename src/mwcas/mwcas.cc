@@ -1,10 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT license.
 
-#ifdef WIN32
-#include <Windows.h>
-#undef ERROR // Avoid collision of ERROR definition in Windows.h with glog
-#endif
 #include "include/pmwcas.h"
 #include "mwcas/mwcas.h"
 #include "util/atomics.h"

@@ -131,16 +131,9 @@ set (PMWCAS_APPS_LINK_LIBS
   gtest_main 
 )
 
-if(WIN32)
-  set(WINDOWS_ENVIRONMENT_SOURCES
-    src/environment/environment_windows.cc
-  )
-else()
-  set(LINUX_ENVIRONMENT_SOURCES
-    src/environment/environment_linux.cc
-  )
-endif()
-
+set(LINUX_ENVIRONMENT_SOURCES
+  src/environment/environment_linux.cc
+)
 
 add_definitions(-DAPPS)
 
@@ -174,11 +167,7 @@ add_subdirectory(src/mwcas)
 
 
 # Generate a shared library for applications to link
-if(WIN32)
-  set_property(GLOBAL APPEND PROPERTY PMWCAS_SRC ${WINDOWS_ENVIRONMENT_SOURCES})
-else()
-  set_property(GLOBAL APPEND PROPERTY PMWCAS_SRC ${LINUX_ENVIRONMENT_SOURCES})
-endif()
+set_property(GLOBAL APPEND PROPERTY PMWCAS_SRC ${LINUX_ENVIRONMENT_SOURCES})
 
 get_property(PMWCAS_SRC GLOBAL PROPERTY PMWCAS_SRC)
 add_library(pmwcas SHARED ${PMWCAS_SRC})

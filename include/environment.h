@@ -16,10 +16,6 @@
 #include "src/util/auto_ptr.h"
 #include "src/common/allocator_internal.h"
 
-#ifdef WIN32
-#include <windows.h>
-#endif
-
 namespace pmwcas {
 
 /// Thread affinity used by the benchmark driver:
@@ -172,11 +168,7 @@ class IEnvironment {
 
   /// Return the unique id of the caller thread.
   uint64_t GetThreadId() {
-#ifdef WIN32
-    return GetCurrentThreadId();
-#else
     return pthread_self();
-#endif
   }
 
   /// Return the number of cores (plus hyperthreads, if enabled). Return value
@@ -205,25 +197,8 @@ class IEnvironment {
   /// Return the directory of where the executable resides
   virtual Status GetExecutableDirectory(std::string& directory) = 0;
 
-#ifdef WIN32
-  /// Allocate an index in thread local storage.
-  virtual Status AllocateTlsIndex(uint32_t& index) = 0;
-
-  /// Free the given \a index in thread local storage.
-  virtual Status FreeTlsIndex(uint32_t index) = 0;
-
-  /// Get the value stored in a given \a index in thread local storage.
-  virtual Status GetTlsValue(uint32_t index, void** value) = 0;
-
-  /// Set the value at a givevn \a index in thread local storage.
-  virtual Status SetTlsValue(uint32_t index, void* value) = 0;
-#endif
 };
 
 } //namespace pmwcas
 
-#ifdef WIN32
-#include "src/environment/environment_windows.h"
-#else
 #include "src/environment/environment_linux.h"
-#endif

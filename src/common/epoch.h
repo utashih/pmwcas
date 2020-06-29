@@ -198,22 +198,13 @@ class EpochManager {
       /// Note: We'll want to be even smarter for NUMA. We'll want to
       /// allocate slots that reside in socket-local DRAM to threads.
       void* operator new[](uint64_t count) {
-#ifdef WIN32
-        return _aligned_malloc(count, CACHELINE_SIZE);
-#else
         void *mem = nullptr;
         int n = posix_memalign(&mem, CACHELINE_SIZE, count);
         return mem;
-#endif
       }
 
       void operator delete[](void* p) {
-#ifdef WIN32
-        /// _aligned_malloc-specific delete.
-        return _aligned_free(p);
-#else
         free(p);
-#endif
       }
 
       /// Don't allow single-entry allocations. We don't ever do them.

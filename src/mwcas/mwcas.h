@@ -63,11 +63,6 @@
 // whether use mwcas's mechanism for memory deallocation.
 #pragma once
 
-#ifdef WIN32
-#include <Windows.h>
-#undef ERROR // Avoid collision of ERROR definition in Windows.h with glog
-#endif
-
 #ifndef DESC_CAP
 #define DESC_CAP 4
 #warning "DESC_CAP not defined - setting to 4"

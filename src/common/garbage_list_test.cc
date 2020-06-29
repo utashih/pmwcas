@@ -9,11 +9,7 @@
 #include "include/pmwcas.h"
 #include "common/epoch.h"
 #include "common/garbage_list.h"
-#ifdef WIN32
-#include "environment/environment_windows.h"
-#else
 #include "environment/environment_linux.h"
-#endif
 
 namespace pmwcas {
 namespace test {
@@ -106,16 +102,9 @@ TEST_F(GarbageListTest, Smoke) {
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
-#ifdef WIN32
-  pmwcas::InitLibrary(pmwcas::DefaultAllocator::Create,
-                           pmwcas::DefaultAllocator::Destroy,
-                           pmwcas::WindowsEnvironment::Create,
-                           pmwcas::WindowsEnvironment::Destroy);
-#else
   pmwcas::InitLibrary(pmwcas::TlsAllocator::Create,
                            pmwcas::TlsAllocator::Destroy,
                            pmwcas::LinuxEnvironment::Create,
                            pmwcas::LinuxEnvironment::Destroy);
-#endif
   return RUN_ALL_TESTS();
 }
