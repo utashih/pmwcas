@@ -14,11 +14,7 @@
 #include "mwcas/mwcas.h"
 #include "util/auto_ptr.h"
 #include "util/random_number_generator.h"
-#ifdef WIN32
-#include "environment/environment_windows.h"
-#else
 #include "environment/environment_linux.h"
-#endif
 
 namespace pmwcas {
 
@@ -291,11 +287,6 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   FLAGS_alsologtostderr = 1;
 
-#ifdef WIN32
-  pmwcas::InitLibrary(
-      pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
-      pmwcas::WindowsEnvironment::Create, pmwcas::WindowsEnvironment::Destroy);
-#else
 #ifdef PMDK
   pmwcas::InitLibrary(pmwcas::PMDKAllocator::Create(
                           "mwcas_test_pool", "mwcas_linked_layout",
@@ -308,7 +299,5 @@ int main(int argc, char** argv) {
       pmwcas::DefaultAllocator::Create, pmwcas::DefaultAllocator::Destroy,
       pmwcas::LinuxEnvironment::Create, pmwcas::LinuxEnvironment::Destroy);
 #endif
-#endif
-
   return RUN_ALL_TESTS();
 }

@@ -16,11 +16,7 @@
 #include "mwcas/mwcas.h"
 #include "util/auto_ptr.h"
 #include "util/random_number_generator.h"
-#ifdef WIN32
-#include "environment/environment_windows.h"
-#else
 #include "environment/environment_linux.h"
-#endif
 
 static const uint64_t ARRAY_SIZE = 1024;
 static const uint8_t ARRAY_INIT_VALUE = 0;

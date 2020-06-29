@@ -7,12 +7,6 @@
 
 namespace pmwcas {
 
-#ifdef WIn32
-#ifndef snprintf
-#define snprintf _snprintf_s
-#endif
-#endif  // WIN32
-
 const char* Status::CopyState(const char* state) {
   uint32_t size;
   memcpy(&size, state, sizeof(size));

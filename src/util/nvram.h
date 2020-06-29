@@ -5,10 +5,6 @@
 
 #include <unistd.h>
 
-#ifdef WIN32
-#include <intrin.h>
-#endif
-
 #ifdef PMDK
 #include <libpmemobj.h>
 #endif
@@ -33,12 +29,7 @@ struct NVRAM {
     use_clflush = false;
     if(delay_ns) {
       uint64_t start = __rdtsc();
-
-#ifdef WIN32
-      Sleep(1000);  // 1 second
-#else
       sleep(1);
-#endif
 
       uint64_t end = __rdtsc();
       write_delay_cycles = (double)(end - start) / 1000000000 * delay_ns;
