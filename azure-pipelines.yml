@@ -49,35 +49,8 @@ stages:
           testResultsFormat: 'CTest'
           testResultsFiles: '**/Testing/*/Test.xml'
   
-  - job: benchmark
-    dependsOn: test
-    steps:
-      - script: docker run --name=pmwcas_$(Build.BuildId)_bench --entrypoint 
-               "/usr/src/pmwcas/build_tmp/src/benchmarks/mwcas_benchmark" pmwcas_$(Build.BuildId)_pmdk 
-               --threads=4 --pmdk_pool=mwcas_pool
-        displayName: 'Run benchmarks'
-        env:
-          PMEM_IS_PMEM_FORCE: 1
-
-      - script: |
-          git clone --depth 1 -b gh-pages https://$GH_TOKEN@github.com/XiangpengHao/pmwcas.git gh-pages
-          echo $(Build.SourceVersion) $(Build.BuildId) > ./public/build_data
-          docker cp pmwcas_$(Build.BuildId)_bench:/usr/src/pmwcas/mwcas_bench_output.txt ./public/bench_data
-          cp ./gh-pages/data.json ./public/
-          cp ./public/* ./gh-pages
-          cd gh-pages 
-          python3 ./data_process.py
-          git config user.email "ci@haoxp.xyz"
-          git config user.name "cibot"
-          git add .
-          git commit -m"update benchmark result"
-          git push origin gh-pages --force
-        env:
-          GH_TOKEN: $(GITHUB_TOKEN)
-        displayName: "Publish benchmark result"
-  
   - job: clean
-    dependsOn: benchmark
+    dependsOn: test 
     steps:
       - script: docker rmi $(docker images --filter=reference="pmwcas_$(Build.BuildId)*" -q) --force
         displayName: 'Clean the containers'

@@ -25,31 +25,6 @@
 #include "src/util/macros.h"
 
 namespace pmwcas {
-
-class LinuxSharedMemorySegment : public SharedMemorySegment {
- public:
-  LinuxSharedMemorySegment();
-  ~LinuxSharedMemorySegment();
-
-  static Status Create(unique_ptr_t<SharedMemorySegment>& segment);
-
-  virtual Status Initialize(const std::string& segname, uint64_t size, bool open_existing) override;
-
-  virtual Status Attach(void* base_address = nullptr) override;
-
-  virtual Status Detach() override;
-
-  virtual void* GetMapAddress() override;
-
-  //virtual DumpToFile(const std::string& filename) override;
-
- private:
-  std::string segment_name_;
-  uint64_t size_;
-  int map_fd_;
-  void* map_address_;
-};
-
 class LinuxEnvironment : public IEnvironment {
  public:
   LinuxEnvironment();
@@ -80,9 +55,6 @@ class LinuxEnvironment : public IEnvironment {
   virtual Status NewRandomReadWriteAsyncFile(const std::string& filename,
       const FileOptions& options, ThreadPool* threadpool, RandomReadWriteAsyncFile** file,
       bool* exists = nullptr) override ;
-
-  virtual Status NewSharedMemorySegment(const std::string& segname, uint64_t size,
-                                        bool open_existing, SharedMemorySegment** seg) override;
 
   virtual Status NewThreadPool(uint32_t max_threads,
                                ThreadPool** pool) override;

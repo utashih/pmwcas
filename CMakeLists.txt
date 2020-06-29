@@ -11,7 +11,7 @@ include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -lrt -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-long-long -pedantic -fPIC -march=native")
 
 if (CMAKE_BUILD_TYPE EQUAL "Release")
   message("-- Release mode, all optimizations enabled")
@@ -117,18 +117,6 @@ if(${GOOGLE_FRAMEWORK})
     add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
   endif()
 
-
-  # Google Flags 
-  FetchContent_Declare(
-          gflags
-          GIT_REPOSITORY https://github.com/gflags/gflags.git
-          GIT_TAG v2.2.2
-  )
-  FetchContent_GetProperties(gflags)
-  if (NOT gflags_POPULATED)
-    FetchContent_Populate(gflags)
-    add_subdirectory(${gflags_SOURCE_DIR} ${gflags_BINARY_DIR})
-  endif()
 endif()
 
 # Set the list of libraries that make up the pmwcas stack
@@ -141,7 +129,6 @@ set (PMWCAS_APPS_LINK_LIBS
   pmwcas
   glog::glog
   gtest_main 
-  double-linked-list
 )
 
 if(WIN32)
@@ -183,9 +170,7 @@ ENDFUNCTION()
 add_subdirectory(src/util)
 add_subdirectory(src/environment)
 add_subdirectory(src/common)
-add_subdirectory(src/benchmarks)
 add_subdirectory(src/mwcas)
-add_subdirectory(src/double-linked-list)
 
 
 # Generate a shared library for applications to link
