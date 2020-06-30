@@ -8,7 +8,6 @@ set(UTIL_HEADERS
 )
 
 set(UTIL_SOURCES
-  ${CMAKE_CURRENT_SOURCE_DIR}/nvram.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/status.cc
 )
 
