@@ -299,12 +299,6 @@ void Descriptor::Initialize() {
 #endif
 }
 
-void* Descriptor::DefaultAllocateCallback(size_t size) {
-  void *mem = nullptr;
-  Allocator::Get()->AllocateAligned(&mem, size, kCacheLineSize);
-  return mem;
-}
-
 void Descriptor::DefaultFreeCallback(void* context, void* p) {
   Allocator::Get()->FreeAligned(p);
 }
@@ -482,7 +476,7 @@ bool Descriptor::VolatileMwCAS(uint32_t calldepth) {
     // CondCAS
     // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
-    auto rtm_install_success = RTMInstallDescriptors(words_, kDirtyFlag);
+    auto rtm_install_success = RTMInstallDescriptors(words_);
 #else
     auto rtm_install_success = false;
 #endif

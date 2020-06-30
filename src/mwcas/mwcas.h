@@ -150,12 +150,6 @@ public:
   /// Signaure for garbage free callback (see free_callback_ below)
   typedef void (*FreeCallback)(void* context, void* word);
 
-  /// Signature for NVM allocation callback (see allocate_callback_ below)
-  typedef void* (*AllocateCallback)(size_t size);
-
-  /// The default NVM allocate callback used if no callback is specified by the user
-  static void* DefaultAllocateCallback(size_t size);
-
   /// The default free callback used if no callback is specified by the user
   static void DefaultFreeCallback(void* context, void* p);
 
@@ -622,7 +616,6 @@ private:
   retry:
     uint64_t val = (uint64_t)value_;
 
-  #ifndef RTM
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       Descriptor::WordDescriptor* wd =
@@ -638,7 +631,6 @@ private:
 #endif
       goto retry;
     }
-  #endif
 
     if(val & kMwCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
@@ -660,7 +652,6 @@ private:
   retry:
     uint64_t val = (uint64_t)value_;
 
-#ifndef RTM
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       Descriptor::WordDescriptor* wd =
@@ -675,7 +666,6 @@ private:
 #endif
       goto retry;
     }
-#endif
 
     if(val & kMwCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
@@ -699,7 +689,6 @@ private:
 retry:
     uint64_t val = (uint64_t)value_;
 
-#ifndef RTM
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       RAW_CHECK((val & kDirtyFlag) == 0,
@@ -716,7 +705,6 @@ retry:
 #endif
       goto retry;
     }
-#endif
 
     if(val & kDirtyFlag) {
       goto retry;
@@ -743,7 +731,7 @@ retry:
 
   retry:
     uint64_t val = (uint64_t)value_;
-#ifndef RTM
+
     if(val & kCondCASFlag) {
 #if PMWCAS_THREAD_HELP == 1
       RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on CondCAS descriptor");
@@ -759,7 +747,6 @@ retry:
 #endif
       goto retry;
     }
-#endif
 
     if(val & kDirtyFlag) {
       goto retry;
