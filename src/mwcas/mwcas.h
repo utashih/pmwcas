@@ -148,10 +148,10 @@ public:
   }
 
   /// Signaure for garbage free callback (see free_callback_ below)
-  typedef void (*FreeCallback)(void* context, void* word);
+  typedef void (*FreeCallback)(void* context, void** mem);
 
   /// The default free callback used if no callback is specified by the user
-  static void DefaultFreeCallback(void* context, void* p);
+  static void DefaultFreeCallback(void* context, void** mem);
 
   /// Specifies what word to update in the mwcas, storing before/after images so
   /// others may help along. This also servers as the descriptor for conditional
