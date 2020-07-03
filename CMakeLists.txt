@@ -6,7 +6,6 @@ endif("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
 
 project(pmwcas)
 
-include(ExternalProject)
 include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -77,47 +76,36 @@ endif()
 ##############################################
 
 
-option(GOOGLE_FRAMEWORK "Use glog, gflags and gtest" ON)
-if(${GOOGLE_FRAMEWORK})
-  add_definitions(-DGOOGLE_FRAMEWORK)
-  message(STATUS "GOOGLE_FRAMEWORK is defined, will use glog, gflags and gtest")
-else()
-  message(STATUS "GOOGLE_FRAMEWORK is not defined, will not use glog, gflags and gtest")
-endif()
-
-
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
-if(${GOOGLE_FRAMEWORK})
-  # Google Test
-  FetchContent_Declare(
-          googletest
-          GIT_REPOSITORY https://github.com/google/googletest.git
-          GIT_TAG release-1.8.1
-  )
-  FetchContent_GetProperties(googletest)
-  if (NOT googletest_POPULATED)
-    FetchContent_Populate(googletest)
-    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
-  endif ()
-  include(GoogleTest)
+# Google Test
+FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.8.1
+)
+FetchContent_GetProperties(googletest)
+if (NOT googletest_POPULATED)
+  FetchContent_Populate(googletest)
+  add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
+endif ()
+include(GoogleTest)
 
 
-  # Google Log
-  FetchContent_Declare(
-          glog
-          GIT_REPOSITORY https://github.com/google/glog.git
-          GIT_TAG v0.4.0
-  )
-  FetchContent_GetProperties(glog)
-  if (NOT glog_POPULATED)
-    FetchContent_Populate(glog)
-    set(WITH_GFLAGS OFF CACHE BOOL "we don't want gflags")
-    add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
-  endif()
-
+# Google Log
+FetchContent_Declare(
+        glog
+        GIT_REPOSITORY https://github.com/google/glog.git
+        GIT_TAG v0.4.0
+)
+FetchContent_GetProperties(glog)
+if (NOT glog_POPULATED)
+  FetchContent_Populate(glog)
+  set(WITH_GFLAGS OFF CACHE BOOL "we don't want gflags")
+  add_subdirectory(${glog_SOURCE_DIR} ${glog_BINARY_DIR})
 endif()
+
 
 # Set the list of libraries that make up the pmwcas stack
 set (PMWCAS_LINK_LIBS
@@ -135,11 +123,8 @@ set(LINUX_ENVIRONMENT_SOURCES
   src/environment/environment_linux.cc
 )
 
-add_definitions(-DAPPS)
-
 # Set the link libraries to for test compilation
-set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS})
-set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_TEST_LINK_LIBS} "-lpthread -lnuma -fPIC")
+set (PMWCAS_TEST_LINK_LIBS ${PMWCAS_LINK_LIBS} "-lpthread -lnuma -fPIC")
 
 # Set the link libraries to for benchmark binary compilation
 set (PMWCAS_BENCHMARK_LINK_LIBS ${PMWCAS_BENCHMARK_LINK_LIBS} gflags::gflags "-fPIC -lpthread -lnuma")
@@ -151,12 +136,6 @@ FUNCTION(ADD_PMWCAS_TEST TEST_NAME)
   add_executable(${TEST_NAME} ${TEST_NAME}.cc ${PROJECT_SOURCE_DIR}/${LINUX_ENVIRONMENT_SOURCES})
   target_link_libraries(${TEST_NAME} ${PMWCAS_TEST_LINK_LIBS} ${PMWCAS_APPS_LINK_LIBS})
   gtest_add_tests(TARGET ${TEST_NAME})
-ENDFUNCTION()
-
-#Function to automate building benchmark binaries with appropriate environment sources
-FUNCTION(ADD_PMWCAS_BENCHMARK BENCHMARK_NAME)
-  add_executable(${BENCHMARK_NAME} ${BENCHMARK_HEADERS} ${BENCHMARK_NAME}.cc ${PROJECT_SOURCE_DIR}/${LINUX_ENVIRONMENT_SOURCES})
-  target_link_libraries(${BENCHMARK_NAME} ${PMWCAS_BENCHMARK_LINK_LIBS} ${PMWCAS_APPS_LINK_LIBS})
 ENDFUNCTION()
 
 # Build each subdirectory
@@ -174,4 +153,4 @@ add_library(pmwcas SHARED ${PMWCAS_SRC})
 if(${PMEM_BACKEND} STREQUAL "PMDK")
   target_link_libraries(pmwcas PUBLIC pmemobj)
 endif()
-target_link_libraries(pmwcas PUBLIC glog::glog)
+target_link_libraries(pmwcas PUBLIC ${PMWCAS_LINK_LIBS})
