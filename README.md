@@ -2,36 +2,6 @@
 
 [![Build Status](https://dev.azure.com/haoxiangpeng/pmwcas/_apis/build/status/sfu-dis.pmwcas?branchName=dev)](https://dev.azure.com/haoxiangpeng/pmwcas/_build/latest?definitionId=4&branchName=dev)
 
-The PMwCAS performance is automatically tracked on every commit,
-checkout the visualization here: https://xiangpenghao.github.io/pmwcas.
-
-**Disclaimer:** for a stable and feature-complete PMwCAS please checkout Microsoft's [original repo](https://github.com/microsoft/pmwcas),
-this fork contains some follow up work upon the original PMwCAS, 
-due to limited developing resources,
-all the new features will only test on the latest Linux environment. 
-
-### Current development plan
-
-**Clean** the build system and some unused code.
-Then adopt a CI for PMwCAS,
-this, however, might drop support for Windows, 
-because I'm not familiar with that platform.
-:white_check_mark:
-
-**Improve** the performance by adopting less aggressive thread helping policy, e.g. thread should never help each other. 
-People may argue this breaks the lock-free design philosophy, 
-and in some extreme cases no progress can be made. 
-They are theoretically correct, but the goal of my improvements is to make PMwCAS usable in more practical scenarios.
-It's practical to make assumption that, real-world high performance system never over-subscribe their cpu cores!
-- Track the performance :white_check_mark:
-
-**Add** some new features and ideas to the current implementation. 
-Although these improvements are never intended to make a new paper, PMwCAS itself might affiliate with other academic projects, which I can't talk too much here.
-
-Related link: [Recent updates on PMwCAS](https://blog.haoxp.xyz/posts/pmwcas-update/)
-
-==========================
-
 PMwCAS is a library that allows atomically changing multiple 8-byte words on non-volatile memory in a lock-free manner. It allows developers to easily build lock-free data structures for non-volatile memory and requires no custom recovery logic from the application. More details are described in the following [slide deck](http://www.cs.sfu.ca/~tzwang/pmwcas-slides.pdf), [full paper](http://justinlevandoski.org/papers/ICDE18_mwcas.pdf) and [extended abstract](http://www.cs.sfu.ca/~tzwang/pmwcas-nvmw.pdf):
 
 ```
@@ -46,79 +16,32 @@ NVMW 2019.
 Finalist for Memorable Paper Award.
 ```
 
-## Environment and Variants
-
-The current code supports both Windows (CMake + Visual Studio) and Linux (CMake + gcc/clang) and four variants with different persistence modes:
-
-1. Persistence using Intel [PMDK](https://pmem.io)
-2. Persistence by emulation with DRAM
-3. Volatile (no persistence support)
-4. Volatile with Intel TSX (using hardware transaction memory to install descriptors, for `Volatile` only)
-
-A persistence mode must be specified at build time through the `PMEM_BACKEND` option in CMake (default PMDK). See below for how to pass this option to CMake.
-
-## Build (for Linux)
+## Build
 Suppose we build in a separate directory "build" under the source directory.
-
-To build PMwCAS without TSX:
-```
-$ mkdir build
-$ cd build
-$ cmake -DPMEM_BACKEND=[PMDK/Volatile/Emu] -DCMAKE_BUILD_TYPE=[Debug/Release/RelWithDebInfo] ..
-$ make -jN
-```
-
-To build a **volatile** PMwCAS variant that uses TSX to install descriptor pointers:
-```
-$ mkdir build
-$ cd build
-$ cmake -DPMEM_BACKEND=Volatile -DWITH_RTM=1 -DCMAKE_BUILD_TYPE=[Debug/Release/RelWithDebInfo] ..
+```bash
+$ mkdir build && cd build
+$ cmake -DPMEM_BACKEND=[PMDK/Volatile/Emu] \ # persistent memory backend
+        -DDESC_CAP=[4/5/6/...] \ # descriptor capacity
+        -DWITH_RTM=[0/1] \ # Use Intel RTX
+        ..
 $ make -jN
 ```
 
 #### Descriptor size
 By default each descriptor can hold up to four words. This can be adjusted at compile-time by specifying the `DESC_CAP` parameter to CMake, for example the following will allow up to 8 words per descriptor:
 ```
-$ cmake -DDESC_CAP=8 -DPMEM_BACKEND=Volatile -DWITH_RTM=1 -DCMAKE_BUILD_TYPE=[Debug/Release/RelWithDebInfo] ..
+$ cmake -DDESC_CAP=8 [...]
 ```
 
-#### Huge pages and memlock limits (for Linux)
+#### Persistent memory backends
+The current code supports three variants with different persistence modes:
 
-Under Linux the `volatile` and `emu` variants use a simple thread-local allocator that uses huge pages. Make sure the system has enough huge pages:
-```
-sudo sh -c 'echo [x pages] > /proc/sys/vm/nr_hugepages'
-```
-By default the allocator needs ~10GB per socket, defined by `kNumaMemorySize` in [src/environment/environment_linux.h](./src/environment/environment_linux.h).
+1. Persistence using Intel [PMDK](https://pmem.io)
+2. Persistence by emulation with DRAM
+3. Volatile (no persistence support)
 
-On Linux `mwcas_shm_server` (see below) requires a proper value for memlock limits. Add the following to `/etc/security/limits.conf` (replace "[user]" with your login) to make it unlimited (need **re-login** to apply):
-```
-[user] soft memlock unlimited
-[user] hard memlock unlimited
-```
+A persistence mode must be specified at build time through the `PMEM_BACKEND` option in CMake (default PMDK).
 
-#### To build on Windows (to be tested for PMDK):
-
-```
-$ md build
-$ cd build
-$ cmake -G [generator] ..
-```
-
-`[generator]` should match the version of Visual Studio installed and specify `Win64`, e.g., `Visual Studio 14 2015 Win64`. Use `cmake -G` to get a full list.
-
-Then either opening and building pmwcas.sln in Visual Studio, or use:
-
-```
-$ msbuild pmwcas.sln /p:Configuration=[Release/Debug]
-```
-
-## NVRAM Emulation
-
-For runs without real NVRAM device (e.g., NVDIMM or Intel 3D-XPoint), we provide a shared-memory interface for emulation. 
-
-The basic idea is to start a dedicated process which creates a shared memory segment for the application (another process) to attach to, so that data will remain intact when the application crashes (the dedicated shared memory process is alive).
-
-The shared memory process is implemented in [src/benchmarks/mwcas_shm_server.cc](./src/benchmarks/mwcas_shm_server.cc). It needs to start before the application.
 
 ## APIs
 
@@ -150,38 +73,14 @@ Thread::ClearRegistry();
 
 ## Benchmarks
 
-To use PMwCAS, simply link the built library with your application. See the [ICDE paper](http://justinlevandoski.org/papers/ICDE18_mwcas.pdf) for a complete list of APIs. The project provides two examples:
+We seperate the benchmark code into a independent [repo](https://github.com/sfu-dis/pmwcas-benchmarks) to automatically and continously track PMwCAS performance.
 
-### Array benchmark
-This benchmark atomically changes a random number of entries in a fixed-sized array (code in [src/benchmarks/mwcas_benchmark.cc](./src/benchmarks/mwcas_benchmark.cc)). 
-
-A sample 10-second, 2-thread, 100-entry array run that changes four words:
-
-```
-$ mwcas_shm_server -shm_segment "mwcas" # start the shared memory process
-$ mwcas_benchmark -shm_segment "mwcas" -threads 2 -seconds 10 -array_size 100 -word_count 4
-```
-See the source file for  a complete list of parameters.
-
-### Doubly-linked list
-Inside [src/double-linked-list](./src/double-linked-list) are implementations of  lock-free doubly-linked lists using single-word CAS and PMwCAS. A benchmark is implemented in [src/benchmarks/doubly_linked_list_benchmark.cc](./src/benchmarks/doubly_linked_list_benchmark.cc).
+Check out our [benchmark repo](https://github.com/sfu-dis/pmwcas-benchmarks) for more details.
 
 # Contributing
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.microsoft.com.
-
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
-
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+We welcome all contributions. 
 
 ## License
-
-Copyright (c) Microsoft Corporation. All rights reserved.
 
 Licensed under the MIT License.
