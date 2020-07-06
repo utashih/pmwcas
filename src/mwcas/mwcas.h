@@ -88,6 +88,7 @@ class Descriptor;
 class DescriptorPool;
 
 #define PMWCAS_THREAD_HELP 0
+#define PMWCAS_ENFORCE_RTM_INSTALL 0
 
 class alignas(kCacheLineSize) Descriptor {
   template<typename T> friend class MwcTargetField;
