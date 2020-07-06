@@ -427,6 +427,10 @@ retry:
   if(_XBEGIN_STARTED == _xbegin()) {
     for(uint32_t i = 0; i < count_; ++i) {
       WordDescriptor* wd = &all_desc[i];
+      // Skip entries added purely for allocating memory
+      if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
+        continue;
+      }
       if(*wd->address_ != wd->old_value_) {
         _xabort(0);
       }
