@@ -437,11 +437,13 @@ retry:
       *wd->address_ = mwcas_descptr;
     }
     _xend();
+    MwCASMetrics::AddSucceededHTMInstall(tries);
     return true;
   }
   if(tries++ < kMaxTries) {
     goto retry;
   }
+  MwCASMetrics::AddFailedHTMInstall();
   return false;
 }
 #endif
@@ -581,13 +583,25 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
   }
 
   if (my_status == kStatusSucceeded) {
+#if PMWCAS_ENFORCE_RTM_INSTALL == 1
+    // Only use RTM to install descriptors (i.e. no MwCAS phase 1). If this HTM
+    // fails, the entire PMwCAS operation is considered failed and thus aborted.
+#ifndef RTM
+    static_assert(false, "Cannot enforce RTM descriptor installation without enabling RTM")
+#endif
+    auto rtm_install_success = RTMInstallDescriptors(tls_desc, kDirtyFlag);
+    if (!rtm_install_success) {
+      my_status = kStatusFailed;
+    }
+#else
     // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
     auto rtm_install_success = RTMInstallDescriptors(tls_desc);
 #else
     auto rtm_install_success = false;
 #endif
-    for (uint32_t i = 0; i < count_ && !rtm_install_success; ++i) {
+#endif
+    for (uint32_t i = 0; !rtm_install_success && i < count_ && my_status == kStatusSucceeded; ++i) {
       WordDescriptor* wd = &words_[i];
       // Skip entries added purely for allocating memory
       if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
