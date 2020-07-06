@@ -259,6 +259,8 @@ private:
 
 #ifdef RTM
   bool RTMInstallDescriptors(WordDescriptor all_desc[], uint64_t dirty_flag = 0);
+
+  bool RTMInstallDescriptorsAlgo2(WordDescriptor all_desc[], uint64_t dirty_flag = 0);
 #endif
 
   /// Retrieve the index position in the descriptor of the given address.
