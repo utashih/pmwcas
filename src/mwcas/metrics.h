@@ -53,6 +53,7 @@ struct RecoveryMetrics {
 // call ThreadInitialize() before start.
 struct MwCASMetrics {
   friend class DescriptorPool;
+  static constexpr size_t kMaxTryMetric = 5;
 
  public:
   MwCASMetrics& operator+=(const MwCASMetrics& other) {
@@ -60,6 +61,11 @@ struct MwCASMetrics {
     failed_update_count += other.failed_update_count;
     read_count += other.read_count;
     descriptor_scavenge_count += other.descriptor_scavenge_count;
+
+    for (size_t i = 0; i < kMaxTryMetric; ++i) {
+      succeeded_htm_install_count[i] += other.succeeded_htm_install_count[i];
+    }
+    failed_htm_install_count += other.failed_htm_install_count;
 
     help_attempt_count += other.help_attempt_count;
     bailed_help_count += other.bailed_help_count;
@@ -73,6 +79,11 @@ struct MwCASMetrics {
     failed_update_count -= other.failed_update_count;
     read_count -= other.read_count;
     descriptor_scavenge_count -= other.descriptor_scavenge_count;
+
+    for (size_t i = 0; i < kMaxTryMetric; ++i) {
+      succeeded_htm_install_count[i] -= other.succeeded_htm_install_count[i];
+    }
+    failed_htm_install_count -= other.failed_htm_install_count;
 
     help_attempt_count -= other.help_attempt_count;
     bailed_help_count -= other.bailed_help_count;
@@ -96,6 +107,7 @@ struct MwCASMetrics {
         failed_update_count(0),
         read_count(0),
         descriptor_scavenge_count(0),
+        failed_htm_install_count(0),
         help_attempt_count(0),
         bailed_help_count(0),
         descriptor_alloc_count(0) {}
@@ -104,17 +116,34 @@ struct MwCASMetrics {
     return succeeded_update_count + failed_update_count;
   }
 
+  uint64_t GetHTMSuccessCount() {
+    uint64_t count = 0;
+    for (size_t i = 0; i < kMaxTryMetric; ++i) {
+      count += succeeded_htm_install_count[i];
+    }
+    return count;
+  }
+
   inline void Print() {
     if (!enabled) return;
     auto update_attempts = GetUpdateAttemptCount();
     std::cout << "> UpdateAttempts " << update_attempts << " (success "
               << succeeded_update_count << " failure " << failed_update_count
               << ")" << std::endl;
-    printf("> UpdateFailurePercent %2f\n",
+    printf("> UpdateFailurePercent %2f%%\n",
            (double)failed_update_count / (double)update_attempts * 100);
     std::cout << "> Reads " << read_count << std::endl;
     std::cout << "> DescriptorScavenges " << descriptor_scavenge_count
               << std::endl;
+    for (size_t i = 1; i < kMaxTryMetric; ++i) {
+      printf("> HTMInstallSuccess[%d] %d\n", i - 1, succeeded_htm_install_count[i - 1]);
+    }
+    std::cout << "> HTMInstallSuccess[+] " << succeeded_htm_install_count[kMaxTryMetric - 1]
+              << std::endl;
+    std::cout << "> HTMInstallFailure " << failed_htm_install_count
+              << std::endl;
+    printf("> HTMInstallSuccess/TotalSuccess %2f%%\n",
+        (double)(GetHTMSuccessCount() / (double)succeeded_update_count * 100));
     std::cout << "> HelpAttempts " << help_attempt_count << std::endl;
     std::cout << "> BailedHelpAttempts " << bailed_help_count << std::endl;
     std::cout << "> DecsriptorAllocations " << descriptor_alloc_count
@@ -161,6 +190,17 @@ struct MwCASMetrics {
     if (enabled) ++MyMetric()->descriptor_scavenge_count;
   }
 
+  inline static void AddSucceededHTMInstall(uint64_t tries) {
+    if (enabled) {
+      auto idx = std::min(tries, kMaxTryMetric - 1);
+      ++MyMetric()->succeeded_htm_install_count[idx];
+    }
+  }
+
+  inline static void AddFailedHTMInstall() {
+    if (enabled) ++MyMetric()->failed_htm_install_count;
+  }
+
   inline static void AddHelpAttempt() {
     if (enabled) ++MyMetric()->help_attempt_count;
   }
@@ -193,6 +233,9 @@ struct MwCASMetrics {
   uint64_t failed_update_count;
   uint64_t read_count;
   uint64_t descriptor_scavenge_count;
+
+  uint64_t succeeded_htm_install_count[kMaxTryMetric]{};
+  uint64_t failed_htm_install_count;
 
   uint64_t help_attempt_count;
   uint64_t bailed_help_count;
