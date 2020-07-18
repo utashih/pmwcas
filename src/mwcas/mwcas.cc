@@ -568,7 +568,7 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
     }
   }
 
-  uint64_t descptr = SetFlags(this, kMwCASFlag | kDirtyFlag);
+  uint64_t descptr = SetFlags(this, kMwCASFlag);
   uint32_t my_status = kStatusSucceeded;
 
   // Go to phase 2 directly if helping along.
@@ -579,7 +579,7 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
   if (my_status == kStatusSucceeded) {
     // Try RTM install first, if failed go to fallback solution.
 #ifdef RTM
-    auto rtm_install_success = RTMInstallDescriptors(tls_desc, kDirtyFlag);
+    auto rtm_install_success = RTMInstallDescriptors(tls_desc);
 #else
     auto rtm_install_success = false;
 #endif
@@ -590,7 +590,7 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
         continue;
       }
     retry_entry:
-      auto rval = CondCAS(i, tls_desc, kDirtyFlag);
+      auto rval = CondCAS(i, tls_desc);
 
       // Ok if a) we succeeded to swap in a pointer to this descriptor or b)
       // some other thread has already done so. Need to persist all fields
@@ -602,17 +602,18 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
       }
 
       if (rval & kDirtyFlag) {
+#if PMWCAS_THREAD_HELP == 1
+        // This must be a (dirty) application-specified value. Help persist it
+        // before retrying our own operation.
+        wd->PersistAddress();
+        CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
+#endif
         goto retry_entry;
       }
 
       // Do we need to help another MWCAS operation?
       if (IsMwCASDescriptorPtr(rval)) {
 #if PMWCAS_THREAD_HELP == 1
-        if (rval & kDirtyFlag) {
-          wd->PersistAddress();
-          CompareExchange64(wd->address_, rval & ~kDirtyFlag, rval);
-        }
-
         // Clashed with another MWCAS; help complete the other MWCAS if it is
         // still in flight.
         Descriptor* otherMWCAS = (Descriptor*)CleanPtr(rval);
@@ -644,12 +645,11 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
       continue;
     }
     uint64_t val = succeeded ? wd->new_value_ : wd->old_value_;
-    uint64_t clean_descptr = descptr & ~kDirtyFlag;
-    if(clean_descptr == CompareExchange64(wd->address_, val, descptr)) {
-      // Retry if someone else already cleared the dirty bit
-      CompareExchange64(wd->address_, val, clean_descptr);
-    }
+    val |= kDirtyFlag;
+    CompareExchange64(wd->address_, val, descptr);
     wd->PersistAddress();
+    RAW_CHECK(val & kDirtyFlag, "invalid final value");
+    CompareExchange64(wd->address_, val & ~kDirtyFlag, val);
   }
 
   if(calldepth == 0) {

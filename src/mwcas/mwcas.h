@@ -683,46 +683,8 @@ private:
 #ifdef PMEM
   // The persistent variant of GetValue().
   T GetValuePersistent(EpochManager* epoch) {
-    MwCASMetrics::AddRead();
     EpochGuard guard(epoch, !epoch->IsProtected());
-
-retry:
-    uint64_t val = (uint64_t)value_;
-
-    if(val & kCondCASFlag) {
-#if PMWCAS_THREAD_HELP == 1
-      RAW_CHECK((val & kDirtyFlag) == 0,
-                "dirty flag set on CondCAS descriptor");
-
-      Descriptor::WordDescriptor *wd =
-          (Descriptor::WordDescriptor *)Descriptor::CleanPtr(val);
-      uint64_t dptr =
-          Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag | kDirtyFlag);
-      CompareExchange64(
-          wd->address_,
-          *wd->status_address_ == Descriptor::kStatusUndecided ? dptr : wd->old_value_,
-          val);
-#endif
-      goto retry;
-    }
-
-    if(val & kDirtyFlag) {
-      goto retry;
-    }
-    RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on return value");
-
-    if(val & kMwCASFlag) {
-#if PMWCAS_THREAD_HELP == 1
-      // While the address contains a descriptor, help along completing the CAS
-      Descriptor *desc = (Descriptor *)Descriptor::CleanPtr(val);
-      RAW_CHECK(desc, "invalid descriptor pointer");
-      desc->PersistentMwCAS(1);
-#endif
-      goto retry;
-    }
-    RAW_CHECK(IsCleanPtr(val), "dirty flag set on return value");
-
-    return val;
+    return GetValueProtectedPersistent();
   }
 
   // The "protected" variant of GetPersistValue().
@@ -749,6 +711,10 @@ retry:
     }
 
     if(val & kDirtyFlag) {
+#if PMWCAS_THREAD_HELP == 1
+      PersistValue();
+      CompareExchange64((uint64_t*)&value_, val & ~kDirtyFlag, val);
+#endif
       goto retry;
     }
     RAW_CHECK((val & kDirtyFlag) == 0, "dirty flag set on return value");
