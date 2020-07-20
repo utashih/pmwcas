@@ -151,6 +151,9 @@ set_property(GLOBAL APPEND PROPERTY PMWCAS_SRC ${LINUX_ENVIRONMENT_SOURCES})
 get_property(PMWCAS_SRC GLOBAL PROPERTY PMWCAS_SRC)
 add_library(pmwcas SHARED ${PMWCAS_SRC})
 if(${PMEM_BACKEND} STREQUAL "PMDK")
-  target_link_libraries(pmwcas PUBLIC pmemobj)
+  set (PMWCAS_LINK_LIBS
+    ${PMWCAS_LINK_LIBS}
+    pmemobj
+  )
 endif()
 target_link_libraries(pmwcas PUBLIC ${PMWCAS_LINK_LIBS})
