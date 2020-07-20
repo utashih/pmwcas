@@ -623,7 +623,7 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
 #ifndef RTM
     static_assert(false, "Cannot enforce RTM descriptor installation without enabling RTM")
 #endif
-    auto rtm_install_success = RTMInstallDescriptors(tls_desc, kDirtyFlag);
+    auto rtm_install_success = RTMInstallDescriptors(tls_desc);
     if (!rtm_install_success) {
       my_status = kStatusFailed;
     }
