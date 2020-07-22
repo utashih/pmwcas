@@ -421,36 +421,7 @@ retry:
 bool Descriptor::RTMInstallDescriptors(WordDescriptor all_desc[], uint64_t dirty_flag) {
   uint64_t mwcas_descptr = SetFlags(this, kMwCASFlag | dirty_flag);
   uint64_t tries = 0;
-  static const uint64_t kMaxTries = 5;
-
-retry:
-  if(_XBEGIN_STARTED == _xbegin()) {
-    for(uint32_t i = 0; i < count_; ++i) {
-      WordDescriptor* wd = &all_desc[i];
-      // Skip entries added purely for allocating memory
-      if ((uint64_t)wd->address_ == Descriptor::kAllocNullAddress) {
-        continue;
-      }
-      if(*wd->address_ != wd->old_value_) {
-        _xabort(0);
-      }
-      *wd->address_ = mwcas_descptr;
-    }
-    _xend();
-    MwCASMetrics::AddSucceededHTMInstall(tries);
-    return true;
-  }
-  if(tries++ < kMaxTries) {
-    goto retry;
-  }
-  MwCASMetrics::AddFailedHTMInstall();
-  return false;
-}
-
-bool Descriptor::RTMInstallDescriptorsAlgo2(WordDescriptor all_desc[], uint64_t dirty_flag) {
-  uint64_t mwcas_descptr = SetFlags(this, kMwCASFlag | dirty_flag);
-  uint64_t tries = 0;
-  static const uint64_t kMaxTries = 10000;
+  static const uint64_t kMaxTries = 4;
 
   while (tries < kMaxTries) {
     auto status = _xbegin();
