@@ -704,7 +704,7 @@ private:
       Descriptor::WordDescriptor *wd =
           (Descriptor::WordDescriptor *)Descriptor::CleanPtr(val);
       uint64_t dptr =
-          Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag | kDirtyFlag);
+          Descriptor::SetFlags(wd->GetDescriptor(), kMwCASFlag);
       CompareExchange64(
           wd->address_,
           *wd->status_address_ == Descriptor::kStatusUndecided ? dptr : wd->old_value_,
