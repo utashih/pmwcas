@@ -292,6 +292,8 @@ DescriptorGuard DescriptorPool::AllocateDescriptor(
   RAW_CHECK(desc, "null descriptor pointer");
   desc->free_callback_ = fc ? fc : Descriptor::DefaultFreeCallback;
 
+  desc->Reinitialize();
+
   return DescriptorGuard(desc);
 }
 
@@ -307,6 +309,32 @@ void Descriptor::Initialize() {
 #ifndef NDEBUG
   memset(words_, 0, sizeof(WordDescriptor) * DESC_CAP);
 #endif
+}
+
+void Descriptor::Reinitialize() {
+  RAW_CHECK(status_ == kStatusFinished, "invalid status");
+
+  count_ = 0;
+  COMPILER_MEMORY_FENCE;
+
+  status_ = kStatusUndecided;
+  next_ptr_ = nullptr;
+
+#ifdef PMEM
+  NVRAM::Flush(kCacheLineSize, this);
+#endif
+
+#ifndef NDEBUG
+  memset(words_, 0, sizeof(WordDescriptor) * DESC_CAP);
+#endif
+}
+
+void Descriptor::Finalize() {
+  RAW_CHECK(status_ == kStatusSucceeded || status_ == kStatusFailed,
+            "invalid status");
+
+  // TODO(shiges): discuss persist or not
+  status_ = kStatusFinished;
 }
 
 void Descriptor::DefaultFreeCallback(void* context, void* p) {
@@ -593,6 +621,8 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
   // be nested/recursively used. Replace this with a stack.
   // thread_local WordDescriptor tls_desc[DESC_CAP];
 
+  RAW_CHECK(status_ != kStatusFinished, "invalid status");
+
 #if not(PMWCAS_THREAD_HELP == 1)
   RAW_CHECK(calldepth == 0, "recursive helping is not enabled");
 #endif
@@ -748,7 +778,7 @@ bool Descriptor::Cleanup() {
 }
 
 Status Descriptor::Abort() {
-  RAW_CHECK(status_ == kStatusFinished, "cannot abort under current status");
+  RAW_CHECK(status_ == kStatusUndecided, "cannot abort under current status");
   status_ = kStatusFailed;
   auto s = owner_partition_->garbage_list->Push(
       this, Descriptor::FreeDescriptor, nullptr);
@@ -804,7 +834,7 @@ void Descriptor::FreeDescriptor(void* context, void* desc) {
 
   Descriptor* desc_to_free = reinterpret_cast<Descriptor*>(desc);
   desc_to_free->DeallocateMemory();
-  desc_to_free->Initialize();
+  desc_to_free->Finalize();
 
   RAW_CHECK(desc_to_free->status_ == kStatusFinished, "invalid status");
 

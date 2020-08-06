@@ -214,14 +214,21 @@ class alignas(kCacheLineSize) Descriptor {
   Descriptor() = delete;
   Descriptor(DescriptorPartition* partition);
 
-  /// Function for initializing a newly allocated Descriptor.
+  /// Function for initializing a Descriptor.
+  /// Called only during system initialization/recovery.
   void Initialize();
+
+  /// Function for reinitializing a finalized Descriptor.
+  /// Called only on newly allocated Descriptors at runtime.
+  void Reinitialize();
+
+  /// Function for finalizing a concluded Descriptor.
+  void Finalize();
 
   /// Executes the multi-word compare and swap operation.
   bool MwCAS() {
-    RAW_CHECK(status_ == kStatusFinished,
-              "status of descriptor is not kStatusFinished");
-    status_ = kStatusUndecided;
+    RAW_CHECK(status_ == kStatusUndecided,
+              "status of descriptor is not kStatusUndecided");
 #ifdef PMEM
     return PersistentMwCAS(0);
 #else
@@ -432,9 +439,6 @@ class DescriptorGuard {
     finished_ = true;
     return desc_->Abort();
   }
-
-  /// Function for initializing a newly allocated Descriptor.
-  void Initialize() { desc_->Initialize(); }
 
  private:
   /// The descriptor behind it
