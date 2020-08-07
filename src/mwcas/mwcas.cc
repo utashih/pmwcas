@@ -354,7 +354,16 @@ int32_t Descriptor::AddEntry(uint64_t* addr, uint64_t oldval, uint64_t newval,
     words_[insertpos].new_value_ = newval;
     words_[insertpos].metadata_ =
         WordDescriptor::PackMetadata(&status_, recycle_policy);
-    ++count_;
+
+#ifdef PMEM
+    NVRAM::Flush(sizeof(WordDescriptor), &words_[insertpos]);
+#endif
+
+    count_ = insertpos + 1;
+
+#ifdef PMEM
+    NVRAM::Flush(sizeof(count_), &count_);
+#endif
   }
   return insertpos;
 }
@@ -639,7 +648,7 @@ bool Descriptor::PersistentMwCAS(uint32_t calldepth) {
               });
     // memcpy(tls_desc, words_, sizeof(WordDescriptor) * DESC_CAP);
     RAW_CHECK(status_ == kStatusUndecided, "invalid status");
-    NVRAM::Flush(sizeof(Descriptor), this);
+    // NVRAM::Flush(sizeof(Descriptor), this);
   } else {
     // memcpy(tls_desc, words_, sizeof(WordDescriptor) * DESC_CAP);
   }
